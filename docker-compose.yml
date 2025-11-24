@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 1. SERVIÇO DE BANCO DE DADOS (Ex: PostgreSQL)
+  db:
+    image: postgres:16-alpine # Usa uma imagem oficial
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: what-to-do-db
+    ports:
+      - "5432:5432" # Mapeia a porta do contêiner para a sua máquina
+    volumes:
+      - ./postgres:/var/lib/postgresql/data # Persistência dos dados
+
+  # 2. SERVIÇO DE BACKEND (NestJS)
+  backend:
+    build:
+      context: ./backend # Indica onde procurar o Dockerfile do backend
+    ports:
+      - "3000:3005"
+    volumes:
+      - ./backend:/usr/src/app # Monta o diretório local para facilitar o desenvolvimento (hot-reload)
+    depends_on:
+      - db # Garante que o DB inicie antes do backend
+    environment:
+      DATABASE_HOST: db # A chave: usa o nome do serviço 'db' como hostname
+      DATABASE_PORT: 5432
+      DATABASE_USER: user
+      DATABASE_PASSWORD: root
+      DATABASE_NAME: what-to-do-db
+
+  # 3. SERVIÇO DE FRONTEND (React)
+  frontend:
+    build:
+      context: ./frontend/what-to-do-front # Indica onde procurar o Dockerfile do frontend
+    ports:
+      - "80:80" # Acessível via http://localhost:80 (ou apenas http://localhost)
+    depends_on:
+      - backend
