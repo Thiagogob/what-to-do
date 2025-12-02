@@ -1,0 +1,10 @@
+.env
+/node_modules
+/dist
+/build
+/out
+/postgres/
+/pgdata/
+
+npm-debug.log*
+.DS_Store

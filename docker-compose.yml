@@ -6,30 +6,46 @@ services:
     image: postgres:16-alpine # Usa uma imagem oficial
     restart: always
     environment:
-      POSTGRES_USER: user
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: root
       POSTGRES_DB: what-to-do-db
     ports:
-      - "5432:5432" # Mapeia a porta do contêiner para a sua máquina
+      - "5433:5432" # Mapeia a porta do contêiner para a sua máquina
     volumes:
       - ./postgres:/var/lib/postgresql/data # Persistência dos dados
+    healthcheck: # Verifica se o DB está aceitando conexões
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # 2. SERVIÇO DE BACKEND (NestJS)
   backend:
     build:
       context: ./backend # Indica onde procurar o Dockerfile do backend
     ports:
-      - "3000:3005"
+      - "3005:3005"
+    env_file:
+      - ./backend/.env
     volumes:
-      - ./backend:/usr/src/app # Monta o diretório local para facilitar o desenvolvimento (hot-reload)
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+      - ./backend/gpx-storage:/usr/src/app/gpx-storage # Monta o diretório local para facilitar o desenvolvimento (hot-reload)
     depends_on:
-      - db # Garante que o DB inicie antes do backend
+      db:
+        condition: service_healthy # Garante que o DB inicie antes do backend
+
+    command: sh -c "mkdir -p /usr/src/app/gpx-storage && export DB_HOST=db && npm run start:dev"
+    
+
     environment:
       DATABASE_HOST: db # A chave: usa o nome do serviço 'db' como hostname
       DATABASE_PORT: 5432
-      DATABASE_USER: user
+      DATABASE_USER: postgres
       DATABASE_PASSWORD: root
       DATABASE_NAME: what-to-do-db
+      PORT: 3005
+    
 
   # 3. SERVIÇO DE FRONTEND (React)
   frontend:
@@ -37,5 +53,7 @@ services:
       context: ./frontend/what-to-do-front # Indica onde procurar o Dockerfile do frontend
     ports:
       - "80:80" # Acessível via http://localhost:80 (ou apenas http://localhost)
+    volumes:
+      - ./frontend/what-to-do-front:/app
     depends_on:
       - backend
