@@ -1,15 +1,16 @@
-# 1. ETAPA DE BUILD (Vite)
-FROM node:20-alpine as build
-WORKDIR /app
-COPY package.json ./
-RUN npm install
-COPY . .
-# O comando é o mesmo, mas gera a pasta '/dist'
-RUN npm run build 
+# Use apenas a imagem base com Node.js/npm
+FROM node:20 as build 
 
-# 2. ETAPA DE SERVIÇO (Nginx)
-FROM nginx:alpine
-# ALTERAÇÃO AQUI: Copia os arquivos gerados do /dist para o Nginx
-COPY --from=build /app/dist /usr/share/nginx/html 
-# Nginx expõe a porta 80
-EXPOSE 80
+# Define o diretório de trabalho, que é mapeado para seu código local via volume
+WORKDIR /app
+
+# Copia os arquivos de configuração de dependências
+COPY package.json ./
+
+# Instala as dependências
+RUN npm install
+
+# Copia o restante do código-fonte (Isso é redundante com o volume, mas é boa prática no Dockerfile)
+COPY . .
+# O CMD é o comando padrão, mas será sobrescrito pelo docker-compose.yml
+CMD ["npm", "run", "dev"]
