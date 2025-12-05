@@ -29,13 +29,13 @@ services:
       - ./backend/.env
     volumes:
       - ./backend:/usr/src/app
-      - /usr/src/app/node_modules
+      #- /usr/src/app/node_modules
       - ./backend/gpx-storage:/usr/src/app/gpx-storage # Monta o diretório local para facilitar o desenvolvimento (hot-reload)
     depends_on:
       db:
         condition: service_healthy # Garante que o DB inicie antes do backend
 
-    command: sh -c "mkdir -p /usr/src/app/gpx-storage && export DB_HOST=db && npm run start:dev"
+    command: sh -c "mkdir -p /usr/src/app/gpx-storage && export DB_HOST=db && npm install && npm run start:dev"
     
 
     environment:
