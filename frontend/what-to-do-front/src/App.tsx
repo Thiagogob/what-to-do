@@ -1,35 +1,40 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+// App.tsx (Como deve ficar)
 
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { RoutesListPage } from './modules/routes/pages/RoutesListPage'; 
+// Importe outros componentes/páginas aqui...
+
+const Layout = ({ children }: { children: React.ReactNode }) => (
+  <div className="min-h-screen bg-gray-50">
+    {/* ... Header Tailwind ... */}
+    <main className="container mx-auto py-6">
+      {children}
+    </main>
+  </div>
+);
+
+
+export const App: React.FC = () => {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1 className="bg-blue-500 text-white p-4 rounded-lg shadow-xl">Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR resenha
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn dadasdasdas uytuyt guyg
-      </p>
-    </>
-  )
-}
+    <Router>
+      <Layout>
+        <Routes>
+          {/* Rota principal, que exibe a lista de rotas */}
+          <Route path="/" element={<RoutesListPage />} />
+          
+          {/* Outras rotas (login, registro, etc.) */}
+          {/* <Route path="/login" element={<LoginPage />} /> */}
+          
+          <Route path="*" element={<div className="p-4 text-center">404 - Página não encontrada</div>} />
+        </Routes>
+      </Layout>
+    </Router>
+  );
+};
+
 
 export default App
