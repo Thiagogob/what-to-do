@@ -18,3 +18,5 @@ export async function fetchRouteById(id: number): Promise<Route> {
   const response = await httpClient.get<Route>(`/routes/${id}`);
   return response.data;
 }
+
+

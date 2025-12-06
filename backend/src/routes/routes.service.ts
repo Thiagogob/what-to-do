@@ -20,8 +20,12 @@ export class RoutesService {
   async processGpxFile(filePath: string): Promise<Route> {
     try {
       // 1. LER O ARQUIVO SALVO PELO MULTER
+      console.log('LOG 2: Service - Iniciando Leitura do Arquivo:', filePath);
+
       const fileBuffer = await fs.readFile(filePath);
-      
+
+      console.log('LOG 3: Service - Leitura Concluída. Iniciando Parsing.');
+
       const gpxData = fileBuffer.toString('utf8')
 
       const domParserFunction = (txt: string): Document | null =>
@@ -82,7 +86,10 @@ export class RoutesService {
       });
 
       // 6. SALVAR NO DB E LIMPAR O ARQUIVO TEMPORÁRIO
+      console.log('LOG 4: Service - Parsing e Cálculos Concluídos. Iniciando DB Save.');
       const savedRoute = await this.routesRepository.save(newRoute);
+      console.log('LOG 4.5: Service - DB Save Concluído.')
+      
       //await fs.unlink(filePath); 
       return savedRoute;
 

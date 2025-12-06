@@ -32,7 +32,7 @@ const getUploadPath = (): string => {
     return '/usr/src/app/gpx-storage'; 
 };
 
-const ABSOLUTE_UPLOAD_DIR = getUploadPath; 
+const ABSOLUTE_UPLOAD_DIR = getUploadPath(); 
 
 const storageOptions = diskStorage({
     destination: ABSOLUTE_UPLOAD_DIR, 
@@ -78,9 +78,13 @@ export class RoutesController {
     async uploadRoute(@UploadedFile() file: Express.Multer.File) {
         // file.path contém o caminho PERMANENTE.
         //const absolutePath = path.resolve(file.path);
+        console.log('LOG 1: Controller - Requisição de Upload Recebida. Arquivo:', file.filename);
+
 
         const route = await this.routesService.processGpxFile(file.path); 
         
+        console.log('LOG 5: Controller - Processamento Completo. Retornando resposta.');
+
         return {
             message: 'Rota processada e salva com sucesso.',
             routeId: route.id,

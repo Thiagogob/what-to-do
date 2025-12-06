@@ -24,7 +24,7 @@ export class Route {
   slope: number;
 
   // Armazena a geometria da rota em formato GeoJSON
-  @Column({ type: 'jsonb', nullable: true}) 
+  @Column({ type: 'simple-json', nullable: true}) 
   geoJsonGeometry: any;
   
   @Column() // 💡 NOVO: Caminho do arquivo GPX no disco

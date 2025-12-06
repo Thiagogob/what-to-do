@@ -21,8 +21,16 @@ export const useRouteById = (id: number): RouteDetailState => {
     async function loadRoute() {
       // Assume que o useAuth ou o AuthGuard garantiram o token.
       try {
-        const data = await fetchRouteById(id);
-        setState({ route: data, loading: false, error: null });
+        const rawData = await fetchRouteById(id);
+            
+            // ⬅️ CRÍTICO: Conversão do GeoJSON (Se for retornado como string)
+            const route: Route = {
+                ...rawData,
+                // Assumindo que geoJsonGeometry é uma string JSON, faça o parse:
+                geoJsonGeometry: rawData.geoJsonGeometry,
+                // Se já for um objeto JSON válido, apenas use: geoJsonGeometry: rawData.geoJsonGeometry,
+            };
+        setState({ route, loading: false, error: null });
       } catch (err) {
         // Se a API retornar 401, o AuthGuard já deve ter redirecionado, 
         // mas tratamos o erro de qualquer forma.
