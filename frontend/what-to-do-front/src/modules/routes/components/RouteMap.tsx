@@ -7,7 +7,7 @@ import type { Feature, FeatureCollection } from 'geojson';
 import bbox from '@turf/bbox'; 
 
 // O token deve ser definido uma vez.
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN; 
+mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || ''; 
 
 interface RouteMapProps {
   geoJson: Feature | FeatureCollection; 
@@ -32,7 +32,12 @@ export const RouteMap: React.FC<RouteMapProps> = ({ geoJson }) => {
   // 2. Efeito de Inicialização (Equivalente ao seu código na foto)
   useEffect(() => {
     // Se a instância já existe ou a ref não está anexada, pare.
-    if (mapInstanceRef.current || !mapContainerRef.current) return;
+    // Se a ref do container não estiver pronta, saia.
+    if (!mapContainerRef.current) return;
+
+    // Se o mapa JÁ existe, não o crie novamente, mas garanta que ele seja removido
+    // quando o componente desmontar.
+    if (mapInstanceRef.current) return;
 
     if (!MAPBOX_TOKEN) {
       console.error("ERRO: Mapbox Token não está configurado.");
@@ -53,7 +58,9 @@ export const RouteMap: React.FC<RouteMapProps> = ({ geoJson }) => {
     // Limpeza: Remove a instância do mapa ao desmontar
     return () => {
       map.remove();
+      mapInstanceRef.current = null; // Limpa a referência
     };
+    
   }, [MAPBOX_TOKEN]); 
 
 
