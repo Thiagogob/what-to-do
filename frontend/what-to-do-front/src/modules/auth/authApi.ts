@@ -1,0 +1,21 @@
+// src/modules/auth/authApi.ts
+
+import { httpClient } from '../../api/httpClient'; // Seu cliente Axios
+import { type LoginResponse } from './types/auth'; 
+
+// ⚠️ Se você ainda não tem, adicione este tipo ao seu auth.ts
+// export interface LoginResponse {
+//   access_token: string;
+// }
+
+/**
+ * Envia credenciais para o backend e retorna o token JWT.
+ */
+export async function loginApi(username: string, password: string): Promise<LoginResponse> {
+  const response = await httpClient.post<LoginResponse>('/auth/login', {
+    username,
+    password,
+  });
+  // O status de sucesso é 201 Created (HTTPStatus.CREATED no NestJS)
+  return response.data;
+}

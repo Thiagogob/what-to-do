@@ -2,9 +2,11 @@
 
 import React from 'react';
 import { useRoutes } from '../hooks/useRoutes';
+import { useNavigate } from 'react-router-dom';
 
 export const RoutesListPage: React.FC = () => {
   const { routes, loading, error } = useRoutes();
+  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -41,6 +43,7 @@ export const RoutesListPage: React.FC = () => {
                   // Usando classes Tailwind para um layout limpo
                   <div
                       key={route.id}
+                      onClick={() => navigate(`/routes/${route.id}`)}
                       className="p-4 shadow-lg rounded-lg border-l-4 border-blue-500 hover:shadow-xl transition duration-300"
                   >
                       <h2 className="text-xl font-semibold text-gray-700 mb-2">{route.name}</h2>

@@ -6,6 +6,10 @@ import './App.css'
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { RoutesListPage } from './modules/routes/pages/RoutesListPage'; 
+import { RouteDetailPage } from './modules/routes/pages/RouteDetailPage';
+import { AuthProvider } from './modules/auth/AuthContext'; // Importar o Provedor
+import { LoginPage } from './modules/auth/pages/LoginPage'; // Importar
+import { AuthRouteGuard } from './modules/auth/AuthRouteGuard'; // Importar o Guard
 // Importe outros componentes/páginas aqui...
 
 const Layout = ({ children }: { children: React.ReactNode }) => (
@@ -21,17 +25,28 @@ const Layout = ({ children }: { children: React.ReactNode }) => (
 export const App: React.FC = () => {
   return (
     <Router>
+      <AuthProvider>
       <Layout>
         <Routes>
           {/* Rota principal, que exibe a lista de rotas */}
           <Route path="/" element={<RoutesListPage />} />
           
+          <Route path="/login" element={<LoginPage />} />
           {/* Outras rotas (login, registro, etc.) */}
           {/* <Route path="/login" element={<LoginPage />} /> */}
+          <Route
+              path="/routes/:routeId"
+              element={
+                <AuthRouteGuard>
+                  <RouteDetailPage />
+                </AuthRouteGuard>
+              }
+            />
           
           <Route path="*" element={<div className="p-4 text-center">404 - Página não encontrada</div>} />
         </Routes>
       </Layout>
+      </AuthProvider>
     </Router>
   );
 };
