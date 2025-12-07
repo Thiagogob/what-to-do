@@ -25,6 +25,10 @@ const AuthContext = createContext<AuthContextType>(initialAuthContext);
 
 export const useAuth = () => useContext(AuthContext);
 
+export const clearAuthStorage = () => {
+    localStorage.removeItem('accessToken');
+};
+
 // src/modules/auth/AuthContext.tsx (Foco na implementação da função login)
 
 // ... (imports e interfaces) ...
@@ -67,16 +71,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
     
-    const logout = () => {
-        localStorage.removeItem('accessToken');
-        setState(s => ({
-            ...s,
-            user: null,
-            accessToken: null,
-            isAuthenticated: false,
-            isLoading: false,
-        }));
-    };
+const logout = () => {
+    // ⬅️ Use a função global que o Interceptor também usa
+    clearAuthStorage(); 
+    setState(s => ({
+        ...s,
+        user: null,
+        accessToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+    }));
+    // Opcional: Redirecionar para a home
+};
 
     // Atualize o useEffect para usar decodeToken ao carregar
     useEffect(() => {

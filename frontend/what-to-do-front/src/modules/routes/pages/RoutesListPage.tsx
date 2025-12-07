@@ -3,10 +3,18 @@
 import React from 'react';
 import { useRoutes } from '../hooks/useRoutes';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/AuthContext';
 
 export const RoutesListPage: React.FC = () => {
   const { routes, loading, error } = useRoutes();
   const navigate = useNavigate();
+  const { logout, isAuthenticated } = useAuth();
+
+  
+  const handleLogout = () => {
+    logout(); // Limpa o token no localStorage e no estado global
+    navigate('/login'); // Redireciona o usuário para a página de Login
+  };
 
   if (loading) {
     return (
@@ -34,9 +42,22 @@ export const RoutesListPage: React.FC = () => {
 
   return (
     <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
       <h1 className="text-3xl font-bold mb-6 text-gray-800">
               Rotas ({routes.length})
-          </h1>
+        </h1>
+          
+{/* ⬅️ Botão de Logout Condicional */}
+        {isAuthenticated && (
+          <button
+            onClick={handleLogout}
+            className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 shadow-md"
+          >
+            Logout
+          </button>
+        )}
+      </div>
+
 
           <div className="space-y-4">
               {routes.map((route) => (
