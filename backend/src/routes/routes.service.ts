@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Or } from 'typeorm';
 import { Route } from './entities/route.entity';
 import * as fs from 'fs/promises';
 import {  
@@ -10,14 +10,22 @@ import {
 } from '@we-gold/gpxjs'; // 
 import { DOMParser } from 'xmldom-qsa';
 
+
+interface UpdateRouteDto {
+    name?: string;
+    // ... outros campos que você possa querer editar
+}
+
+
 @Injectable()
 export class RoutesService {
+
   constructor(
     @InjectRepository(Route)
     private routesRepository: Repository<Route>,
   ) {}
 
-  async processGpxFile(filePath: string): Promise<Route> {
+  async processGpxFile(filePath: string, userId: number): Promise<Route> {
     try {
       // 1. LER O ARQUIVO SALVO PELO MULTER
       console.log('LOG 2: Service - Iniciando Leitura do Arquivo:', filePath);
@@ -82,6 +90,8 @@ export class RoutesService {
         geoJsonGeometry: geoJsonGeometry,
 
         originalFilePath: filePath, 
+
+        userId: userId
 
       });
 
@@ -158,4 +168,43 @@ export class RoutesService {
     }
     return result;
   }
+
+
+async update(id: number, userId: number, updateDto: UpdateRouteDto): Promise<Route> {
+    
+    // Opção 1: Usando Array OR para buscar
+    const route = await this.routesRepository.findOne({
+        where: [
+            // Critério 1: Rota pertence ao usuário logado
+            { id, userId }, 
+            // Critério 2 (temporário): Rota sem dono (NULL) *OU* se o usuário é admin.
+            // Para simplificar, vamos usar uma consulta mais explícita:
+        ],
+    });
+
+    // ⬅️ SOLUÇÃO MAIS SEGURA E EXPLÍCITA: FindOne e depois checagem
+    const routeToUpdate = await this.routesRepository.findOneBy({ id });
+
+    if (!routeToUpdate) {
+        throw new NotFoundException(`Rota com ID ${id} não encontrada.`);
+    }
+
+    // ⬅️ NOVA CHECAGEM: Verifica se o usuário logado é o proprietário (ou se a rota é pública/antiga)
+    // Se a rota tem um dono E o dono não é o usuário logado, LANÇA ERRO.
+    if (routeToUpdate.userId !== null && routeToUpdate.userId !== userId) {
+         throw new NotFoundException(`Rota com ID ${id} não encontrada.`); // Lançar 404 por segurança
+    }
+
+    // Se passou na checagem OU se routeToUpdate.userId é NULL, continue.
+    
+    // 2. Aplica as atualizações do DTO
+    Object.assign(routeToUpdate, updateDto);
+
+    // 3. Salva no banco de dados
+    return this.routesRepository.save(routeToUpdate);
+}
+
+
+
+
 }

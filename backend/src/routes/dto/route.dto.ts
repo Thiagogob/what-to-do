@@ -1,6 +1,7 @@
 // backend/src/routes/dto/route.dto.ts
 
 import { ApiProperty } from '@nestjs/swagger';
+import { IsOptional, IsString } from 'class-validator';
 
 // 1. DTO para o CORPO da Requisição (o arquivo)
 // Descreve o corpo da requisição POST /routes/upload
@@ -24,8 +25,16 @@ export class UploadResponseDto {
     @ApiProperty({ example: 1, description: 'ID da rota salva no banco de dados.' })
     routeId: number;
 
+    @ApiProperty({ example: 'Pedalada Matinal', description: 'O nome atribuído à rota (geralmente do arquivo GPX).' })
+    name: string;
+
     @ApiProperty({ example: 42.195, description: 'Distância total da rota em quilômetros.' })
     distanceKm: number;
+
+    @ApiProperty({ example: 500, description: 'Ganho total de elevação em metros.' })
+    elevationGainMeters: number;
+
+
 }
 
 export class RouteDto {
@@ -52,4 +61,14 @@ export class RouteDto {
     
     // O originalFilePath é um dado interno. Podemos omitir na documentação, 
     // mas se for útil para debug, podemos incluir. Omitindo para ser mais clean.
+}
+
+export class UpdateRouteDto {
+  // O nome é o campo que queremos editar
+  @IsOptional()
+  @IsString()
+  @ApiProperty({ example: 'Pedalada de Domingo', required: false })
+  name?: string;
+
+  // Se você quiser permitir a atualização de outros metadados, adicione aqui
 }

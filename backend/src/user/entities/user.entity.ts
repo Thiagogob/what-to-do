@@ -1,5 +1,6 @@
 import { Exclude } from 'class-transformer';
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { Route } from '../../routes/entities/route.entity';
 
 @Entity('users') //  1. Define o nome da tabela no DB como 'users'
 export class User {
@@ -17,4 +18,7 @@ export class User {
   // Opcional: Para controle de data
   @CreateDateColumn({ default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
+
+  @OneToMany(() => Route, route => route.user)
+  routes: Route[];
 }

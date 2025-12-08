@@ -1,4 +1,4 @@
-import { Controller, Post, UseInterceptors, UploadedFile, HttpException, HttpStatus, UseGuards, Get, Delete, HttpCode, Param, InternalServerErrorException, Res, NotFoundException } from '@nestjs/common';
+import { Controller, Post, UseInterceptors, UploadedFile, HttpException, HttpStatus, UseGuards, Get, Delete, HttpCode, Param, InternalServerErrorException, Res, NotFoundException, Patch, Body, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { RoutesService } from './routes.service';
@@ -19,7 +19,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt.guard'; // Use seu JwtGuard
 import { 
     RouteUploadDto, 
     UploadResponseDto, 
-    RouteDto 
+    RouteDto,
+    UpdateRouteDto 
 } from './dto/route.dto';
 
 const getUploadPath = (): string => {
@@ -75,20 +76,26 @@ export class RoutesController {
 
     @UseInterceptors(FileInterceptor('routeFile', { storage: storageOptions }))
 
-    async uploadRoute(@UploadedFile() file: Express.Multer.File) {
+    async uploadRoute(@UploadedFile() file: Express.Multer.File,
+                      @Req() req: any,): Promise<UploadResponseDto> {
         // file.path contém o caminho PERMANENTE.
         //const absolutePath = path.resolve(file.path);
         console.log('LOG 1: Controller - Requisição de Upload Recebida. Arquivo:', file.filename);
 
+        const userId = req.user.sub;
 
-        const route = await this.routesService.processGpxFile(file.path); 
+
+        const route = await this.routesService.processGpxFile(file.path, userId); 
         
         console.log('LOG 5: Controller - Processamento Completo. Retornando resposta.');
 
         return {
             message: 'Rota processada e salva com sucesso.',
             routeId: route.id,
+            name: route.name,
             distanceKm: route.distanceKm,
+            elevationGainMeters: route.elevationGainMeters
+
         };
     }
 
@@ -104,6 +111,12 @@ export class RoutesController {
         return this.routesService.findAll();
     }
 
+
+
+
+
+
+
     // Rota: GET /routes/:id
     @UseGuards(JwtAuthGuard) 
     @Get(':id')
@@ -118,6 +131,11 @@ export class RoutesController {
     async findOne(@Param('id') id: string) {
         return this.routesService.findOne(parseInt(id, 10));
     }
+
+
+
+
+
 
     @UseGuards(JwtAuthGuard) // 💡 Proteja esta rota com seu JwtGuard
     @Delete(':id')
@@ -140,6 +158,13 @@ export class RoutesController {
         // Se a exclusão for bem-sucedida, o código 204 será retornado automaticamente
         // (graças ao @HttpCode(HttpStatus.NO_CONTENT) e ao fato de não retornarmos nada aqui).
     }
+
+
+
+
+
+
+
 
    @UseGuards(JwtAuthGuard)
    @Get('download/:id')
@@ -182,5 +207,31 @@ export class RoutesController {
             throw new InternalServerErrorException('Falha ao ler o arquivo GPX no disco.');
         }
     }
+
+    @UseGuards(JwtAuthGuard)
+    @Patch(':id')
+    async updateRoute(
+    @Param('id') id: string,
+    @Body() updateRouteDto: UpdateRouteDto,
+    @Req() req: any,
+    ) {
+        const userId = req.user.sub;
+    
+        // O service deve garantir que a rota pertence ao usuário
+        const updatedRoute = await this.routesService.update(
+        +id, // Converte a string do ID para número
+        userId,
+        updateRouteDto,
+        );
+    
+        return updatedRoute;
+    }
+
+
+
+
+
+
+
 
 }

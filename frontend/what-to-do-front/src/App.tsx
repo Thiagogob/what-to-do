@@ -10,6 +10,8 @@ import { RouteDetailPage } from './modules/routes/pages/RouteDetailPage';
 import { AuthProvider } from './modules/auth/AuthContext'; // Importar o Provedor
 import { LoginPage } from './modules/auth/pages/LoginPage'; // Importar
 import { AuthRouteGuard } from './modules/auth/AuthRouteGuard'; // Importar o Guard
+import { UploadRoutePage } from './modules/routes/pages/UploadRoutePage';
+import { RouteEditPage } from './modules/routes/pages/RouteEditPage';
 // Importe outros componentes/páginas aqui...
 
 const Layout = ({ children }: { children: React.ReactNode }) => (
@@ -41,6 +43,24 @@ export const App: React.FC = () => {
                   <RouteDetailPage />
                 </AuthRouteGuard>
               }
+            />
+
+            <Route
+                path="/upload"
+                element={
+                <AuthRouteGuard>
+                <UploadRoutePage />
+                </AuthRouteGuard>
+              }
+            />
+
+            <Route
+                path="/routes/edit/:routeId"
+                element={
+                <AuthRouteGuard>
+                <RouteEditPage /> 
+                </AuthRouteGuard>
+                            }
             />
           
           <Route path="*" element={<div className="p-4 text-center">404 - Página não encontrada</div>} />

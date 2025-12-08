@@ -4,12 +4,20 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useRouteById } from '../hooks/useRouteById'; // ⬅️ Novo hook
 import { RouteMap } from '../components/RouteMap';
+import { useElevationProfile } from '../hooks/useElevationProfile'; // ⬅️ Novo Hook
+import { ElevationChart } from '../components/ElevationChart'; // ⬅️ Novo Componente
+import type { Feature, FeatureCollection } from 'geojson';
 
 export const RouteDetailPage: React.FC = () => {
   const { routeId } = useParams<{ routeId: string }>(); 
   const id = Number(routeId);
   const { route, loading, error } = useRouteById(id);
 
+  //let geoJsonData: any = route.geoJsonGeometry;
+  //const geoJsonData: any = route?.geoJsonGeometry ? JSON.parse(route.geoJsonGeometry) : null;
+  const geoJsonData: Feature | FeatureCollection | null = (route?.geoJsonGeometry as unknown as (Feature | FeatureCollection)) || null;
+
+  const profileData = useElevationProfile(geoJsonData);
   if (!routeId || isNaN(id)) {
     return <div className="p-4 text-red-500">ID da Rota inválido.</div>;
   }
@@ -26,8 +34,9 @@ export const RouteDetailPage: React.FC = () => {
       return <div className="p-8">Detalhes da Rota #{id} não encontrados.</div>;
   }
 
-  let geoJsonData: any = route.geoJsonGeometry;
-   
+  //let geoJsonData: any = route.geoJsonGeometry;
+ 
+  //const profileData = useElevationProfile(geoJsonData);
 
   // ⬅️ Exibição dos dados protegidos
   return (
@@ -45,6 +54,12 @@ export const RouteDetailPage: React.FC = () => {
                         Erro ao carregar dados do mapa. O formato GeoJSON está inválido.
                     </div>
                 )}
+
+                <div className="mt-8">
+          <h3 className="text-2xl font-semibold mb-3">Perfil Topográfico</h3>
+          {geoJsonData && <ElevationChart data={profileData} />} 
+      </div>
+                
       <div className="mt-4 p-4 bg-gray-100 rounded">
         <p>Distância Total: <span className="font-semibold">{Number(route.distanceKm).toFixed(2)} km</span></p>
         <p>Ganho de Elevação: <span className="font-semibold">{Number(route.elevationGainMeters).toFixed(2)} m</span></p>

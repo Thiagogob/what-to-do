@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { User } from '../../user/entities/user.entity';
 
 @Entity('routes')
 export class Route {
@@ -32,4 +33,12 @@ export class Route {
 
   @CreateDateColumn({default: () => 'CURRENT_TIMESTAMP' })
   uploadedAt: Date;
+
+  @Column({ name: 'userId', nullable: true }) // Nome da coluna no DB
+  userId: number;
+
+  // 2. Relação Many-to-One: Muitas Rotas para Um Usuário
+  @ManyToOne(() => User, user => user.routes)
+  @JoinColumn({ name: 'userId' }) // Indica qual coluna armazena a FK
+  user: User; // Propriedade de relação TypeORM
 }
