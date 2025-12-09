@@ -1,5 +1,5 @@
-import { Controller, Post, UseInterceptors, UploadedFile, HttpException, HttpStatus, UseGuards, Get, Delete, HttpCode, Param, InternalServerErrorException, Res, NotFoundException, Patch, Body, Req } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { Controller, Post, UseInterceptors, UploadedFile, HttpException, HttpStatus, UseGuards, Get, Delete, HttpCode, Param, InternalServerErrorException, Res, NotFoundException, Patch, Body, Req, UploadedFiles } from '@nestjs/common';
+import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { RoutesService } from './routes.service';
 import type { Response } from 'express';
@@ -33,13 +33,36 @@ const getUploadPath = (): string => {
     return '/usr/src/app/gpx-storage'; 
 };
 
+const getPhotoUploadPath = (): string => {
+    // Se NODE_ENV for 'test', usa um diretório temporário do sistema operacional (SO)
+    if (process.env.NODE_ENV === 'test') {
+        // Ex: /tmp/gpx-storage-test (no Linux)
+        return path.join(os.tmpdir(), 'photo-storage-test'); 
+    }
+    // Para Produção/Desenvolvimento (Docker)
+    return '/usr/src/app/photo-storage'; 
+};
+
 const ABSOLUTE_UPLOAD_DIR = getUploadPath(); 
+
+const PHOTO_UPLOAD_DIR = getPhotoUploadPath();
 
 const storageOptions = diskStorage({
     destination: ABSOLUTE_UPLOAD_DIR, 
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         const fileName = `${file.fieldname}-${uniqueSuffix}.gpx`;
+        cb(null, fileName);
+    },
+});
+
+const photoStorageOptions = diskStorage({
+    destination: PHOTO_UPLOAD_DIR, 
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        // Garante que a extensão original seja mantida (ex: .jpg, .png)
+        const ext = path.extname(file.originalname);
+        const fileName = `${file.fieldname}-${uniqueSuffix}${ext}`;
         cb(null, fileName);
     },
 });
@@ -149,14 +172,15 @@ export class RoutesController {
     @ApiNoContentResponse({ description: 'Rota removida com sucesso. (Retorna 204 No Content)' })
 
     @ApiNotFoundResponse({ description: 'Rota com o ID especificado não foi encontrada.' })
-    async remove(@Param('id') id: string) {
-        // O ID é recebido como string do URL. Converte para number para o TypeORM.
+async remove(
+        @Param('id') id: string,
+        @Req() req: any, // ⬅️ Para obter o ID do usuário
+    ) {
+        const userId = req.user.sub;
         
-        // Chamamos o serviço que fará a exclusão e a verificação do 404
-        await this.routesService.remove(parseInt(id, 10));
-        
-        // Se a exclusão for bem-sucedida, o código 204 será retornado automaticamente
-        // (graças ao @HttpCode(HttpStatus.NO_CONTENT) e ao fato de não retornarmos nada aqui).
+        // 1. Chama o Service, que verifica a propriedade
+        await this.routesService.remove(+id, userId); 
+        // Retorna 204 (implícito pelo @HttpCode)
     }
 
 
@@ -208,30 +232,87 @@ export class RoutesController {
         }
     }
 
-    @UseGuards(JwtAuthGuard)
+   @UseGuards(JwtAuthGuard)
     @Patch(':id')
+    @ApiBearerAuth('jwt')
+    @ApiOperation({ summary: 'Atualiza o nome da rota e/ou adiciona novas fotos à rota.' })
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({ type: UpdateRouteDto }) // O DTO agora representa os campos de dados
+    @UseInterceptors(
+        FileFieldsInterceptor([
+            // A chave 'photos' deve ser usada no frontend para o FormData
+            { name: 'photos', maxCount: 5 }, 
+        ], {
+            // Usar as opções de armazenamento de fotos que definimos
+            storage: photoStorageOptions 
+        })
+    )
     async updateRoute(
-    @Param('id') id: string,
-    @Body() updateRouteDto: UpdateRouteDto,
+        @Param('id') id: string,
+        // O @Body() extrai os campos de texto (como 'name') do multipart/form-data
+        @Body() updateRouteDto: UpdateRouteDto, 
+        // O @UploadedFiles() extrai os arquivos da requisição
+        @UploadedFiles() files: { photos?: Express.Multer.File[] },
+        @Req() req: any,
+    ) {
+        const routeId = +id;
+        const userId = req.user.sub;
+        
+        // ⬅️ CORREÇÃO DE SEGURANÇA: Usa encadeamento opcional para evitar 'TypeError'
+        const photos = files?.photos || []; 
+
+        // ----------------------------------------------------
+        // 1. ATUALIZAR DADOS E GARANTIR PROPRIEDADE (Service)
+        // O Service verifica se a rota existe e se pertence ao usuário antes de atualizar o 'name'.
+        // ----------------------------------------------------
+        const updatedRoute = await this.routesService.update(
+            routeId,
+            userId,
+            updateRouteDto, // Contém apenas o campo { name: '...' }
+        );
+
+        // ----------------------------------------------------
+        // 2. SALVAR AS FOTOS (Service)
+        // ----------------------------------------------------
+        console.log("LOG: Iniciando PATCH. Files recebidos:", files); // ⬅️ IMPORTANTE
+        console.log("LOG: Quantidade de fotos:", photos.length);
+        if (photos.length > 0) {
+            // O service salvará os metadados de cada foto no DB
+            await this.routesService.saveRoutePhotos(routeId, photos);
+        }
+
+        // Retorna a rota atualizada (o Service pode retornar a rota com as fotos carregadas)
+        return updatedRoute;
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @Delete('photos/:photoId') // ⬅️ Nova rota DELETE
+    @HttpCode(HttpStatus.NO_CONTENT) // Retorna 204 No Content em caso de sucesso
+    @ApiBearerAuth('jwt')
+    @ApiOperation({ summary: 'Remove uma foto da rota pelo ID. Somente o proprietário da rota pode fazer isso.' })
+    @ApiParam({ name: 'photoId', description: 'ID da foto a ser removida.', example: 5 })
+    @ApiNoContentResponse({ description: 'Foto removida com sucesso. (Retorna 204 No Content)' })
+    @ApiNotFoundResponse({ description: 'Foto com o ID especificado não foi encontrada.' })
+    @ApiResponse({ status: 403, description: 'Proibido. O usuário não é o proprietário da foto/rota.' })
+    async removePhoto(
+    @Param('photoId') photoId: string,
     @Req() req: any,
     ) {
         const userId = req.user.sub;
     
-        // O service deve garantir que a rota pertence ao usuário
-        const updatedRoute = await this.routesService.update(
-        +id, // Converte a string do ID para número
-        userId,
-        updateRouteDto,
-        );
+        // 1. Chama o Service para executar a deleção e verificação de propriedade
+        await this.routesService.removePhoto(+photoId, userId); 
     
-        return updatedRoute;
+        // Retorna 204 No Content
     }
 
 
-
-
-
-
-
-
 }
+
+
+
+
+
+
+
+

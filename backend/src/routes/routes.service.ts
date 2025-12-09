@@ -1,14 +1,17 @@
-import { Injectable, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Or } from 'typeorm';
 import { Route } from './entities/route.entity';
 import * as fs from 'fs/promises';
+
 import {  
     parseGPXWithCustomParser,
     calculateDistance, 
     calculateElevation,
 } from '@we-gold/gpxjs'; // 
 import { DOMParser } from 'xmldom-qsa';
+import { RoutePhoto } from './entities/route-photo.entity';
+import path from 'path';
 
 
 interface UpdateRouteDto {
@@ -23,6 +26,9 @@ export class RoutesService {
   constructor(
     @InjectRepository(Route)
     private routesRepository: Repository<Route>,
+
+    @InjectRepository(RoutePhoto) 
+    private photosRepository: Repository<RoutePhoto>,
   ) {}
 
   async processGpxFile(filePath: string, userId: number): Promise<Route> {
@@ -91,7 +97,9 @@ export class RoutesService {
 
         originalFilePath: filePath, 
 
-        userId: userId
+        userId: userId,
+
+        photos: []
 
       });
 
@@ -132,7 +140,10 @@ export class RoutesService {
   }
 
   async findOne(id: number): Promise<Route> {
-    const route = await this.routesRepository.findOneBy({ id });
+    const route = await this.routesRepository.findOne({ 
+      where: {id}, 
+      relations: ['photos']
+    });
 
     if (!route) {
       // Se não encontrou, lança erro 404
@@ -141,11 +152,15 @@ export class RoutesService {
     return route;
   }
 
-  async remove(id: number) {
+  async remove(id: number, userId: number) {
     const route = await this.routesRepository.findOneBy({ id });
     
     if (!route) {
         throw new NotFoundException(`Route with ID ${id} not found.`);
+    }
+
+    if (route.userId !== null && route.userId !== userId) {
+         throw new NotFoundException(`Rota com ID ${id} não encontrada.`); // 404 por segurança
     }
 
     // 1. Tentar remover o arquivo GPX do disco
@@ -173,18 +188,22 @@ export class RoutesService {
 async update(id: number, userId: number, updateDto: UpdateRouteDto): Promise<Route> {
     
     // Opção 1: Usando Array OR para buscar
-    const route = await this.routesRepository.findOne({
-        where: [
-            // Critério 1: Rota pertence ao usuário logado
-            { id, userId }, 
-            // Critério 2 (temporário): Rota sem dono (NULL) *OU* se o usuário é admin.
-            // Para simplificar, vamos usar uma consulta mais explícita:
-        ],
-    });
+    //const route = await this.routesRepository.findOne({
+    //    where: [
+    //        // Critério 1: Rota pertence ao usuário logado
+    //        { id, userId }, 
+    //        // Critério 2 (temporário): Rota sem dono (NULL) *OU* se o usuário é admin.
+    //        // Para simplificar, vamos usar uma consulta mais explícita:
+    //    ],
+    //});
 
     // ⬅️ SOLUÇÃO MAIS SEGURA E EXPLÍCITA: FindOne e depois checagem
-    const routeToUpdate = await this.routesRepository.findOneBy({ id });
+   const routeToUpdate = await this.routesRepository.findOne({
+        where: { id },
+        relations: ['photos'], // ⬅️ CORREÇÃO CRÍTICA: Força o TypeORM a carregar 'photos'
+    });
 
+ 
     if (!routeToUpdate) {
         throw new NotFoundException(`Rota com ID ${id} não encontrada.`);
     }
@@ -196,15 +215,85 @@ async update(id: number, userId: number, updateDto: UpdateRouteDto): Promise<Rou
     }
 
     // Se passou na checagem OU se routeToUpdate.userId é NULL, continue.
-    
+    if (!routeToUpdate.photos) {
+        routeToUpdate.photos = [];
+    }
     // 2. Aplica as atualizações do DTO
-    Object.assign(routeToUpdate, updateDto);
+    if (updateDto.name !== undefined) {
+        routeToUpdate.name = updateDto.name;
+    }
 
     // 3. Salva no banco de dados
     return this.routesRepository.save(routeToUpdate);
 }
 
 
+async saveRoutePhotos(routeId: number, files: Express.Multer.File[]): Promise<RoutePhoto[]> {
+  console.log("LOG: saveRoutePhotos chamado, mas sem arquivos.");
+    if (!files || files.length === 0) {
+        return [];
+    }
+    console.log(`LOG: Salvando ${files.length} arquivos. Primeiro caminho: ${files[0].path}`); // ⬅️ IMPORTANTE
+    // 1. Mapear os arquivos para entidades de foto
+    const photoEntities = files.map(file => {
+        return this.photosRepository.create({
+            // ⬅️ Remova routeId daqui e use a propriedade de relação (passo 2)
+            // routeId: routeId, 
+            
+            // ⬅️ ADICIONE A RELAÇÃO COMPLETA:
+            route: { id: routeId } as Route, 
 
+            filePath: file.path,
+            url: `/api/routes/photos/${path.basename(file.filename || file.path)}`,
+            order: 0,
+        });
+    });
+    console.log("LOG: Persistência concluída.");
+    // 2. Salva as novas entidades de foto
+    return this.photosRepository.save(photoEntities);
+}
+
+async removePhoto(photoId: number, userId: number): Promise<void> {
+        
+        // 1. Encontrar a foto e carregar a rota e o proprietário da rota associada
+        const photo = await this.photosRepository.findOne({
+            where: { id: photoId },
+            // Carrega a relação 'route' e a relação 'user' dentro da rota
+            relations: ['route', 'route.user'], 
+        });
+
+        if (!photo) {
+            throw new NotFoundException(`Foto com ID ${photoId} não encontrada.`);
+        }
+        
+        // 2. VERIFICAÇÃO DE PROPRIEDADE
+        const routeOwnerId = photo.route.user.id;
+        
+        if (routeOwnerId !== userId) {
+            // Se o ID do proprietário da rota for diferente do usuário logado
+            throw new ForbiddenException('Você não tem permissão para deletar esta foto.');
+        }
+
+        // 3. DELEÇÃO FÍSICA DO ARQUIVO
+        const filePathToDelete = photo.filePath; // O caminho absoluto que o Multer salvou
+        
+        try {
+            await fs.unlink(filePathToDelete);
+            console.log(`LOG: Arquivo deletado fisicamente: ${filePathToDelete}`);
+        } catch (error) {
+            // É comum o arquivo já ter sido deletado (ex: teste ou erro manual).
+            // Se o erro indicar que o arquivo não existe, ignoramos para prosseguir com o DB.
+            if (error.code !== 'ENOENT') { // ENOENT = File not found
+                console.error(`Falha ao deletar o arquivo físico ${filePathToDelete}:`, error);
+                // Opcional: Lançar um erro se a falha for grave
+                // throw new InternalServerErrorException('Falha ao deletar arquivo no disco.');
+            }
+        }
+
+        // 4. DELEÇÃO DO REGISTRO NO BANCO DE DADOS
+        await this.photosRepository.delete(photoId);
+
+        console.log(`LOG: Registro de foto ID ${photoId} deletado do banco de dados.`);
+    }
 
 }

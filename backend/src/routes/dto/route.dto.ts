@@ -40,6 +40,9 @@ export class UploadResponseDto {
 export class RouteDto {
     @ApiProperty({ example: 1, description: 'ID único da rota.' })
     id: number;
+
+    @ApiProperty({ example: 2, description: 'ID do usuário proprietário da rota.' })
+    userId: number;
     
     @ApiProperty({ example: 'Trilha do Parque Central', description: 'Nome da rota extraído do arquivo GPX.' })
     name: string;
@@ -58,9 +61,11 @@ export class RouteDto {
 
     @ApiProperty({ example: '2023-11-20T10:00:00.000Z', description: 'Data e hora do upload.' })
     uploadedAt: Date;
+
+
     
-    // O originalFilePath é um dado interno. Podemos omitir na documentação, 
-    // mas se for útil para debug, podemos incluir. Omitindo para ser mais clean.
+    // O originalFilePath é um dado interno. Omitir na documentação, 
+    
 }
 
 export class UpdateRouteDto {

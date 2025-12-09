@@ -3,14 +3,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { RoutesModule } from './routes/routes.module';
-
+import { join } from 'path';
 import { ALL_ENTITIES } from './typeorm.entities';
+
+
+const PHOTO_STORAGE_PATH = '/usr/src/app/photo-storage';
 
 // --- CONFIGURAÇÃO CONDICIONAL DE BANCO DE DADOS ---
 // Esta lógica verifica se a aplicação está rodando em ambiente de teste (NODE_ENV=test).
@@ -54,6 +57,15 @@ const DatabaseModule =
     
     // 2. Módulo de Banco de Dados Condicional
     DatabaseModule,
+
+    ServeStaticModule.forRoot({
+      // 'rootPath' aponta para a pasta física no servidor (Docker) onde o Multer salva.
+      rootPath: PHOTO_STORAGE_PATH, 
+      
+      // 'serveRoot' é o URL prefix que o frontend usa para buscar as imagens.
+      // O URL falho era: http://localhost:3005/api/routes/photos/...
+      serveRoot: '/api/routes/photos', 
+    }),
     
     // Módulos da aplicação
     AuthModule,

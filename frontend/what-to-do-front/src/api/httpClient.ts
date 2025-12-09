@@ -4,16 +4,17 @@ import axios from 'axios';
 import { clearAuthStorage } from '../modules/auth/AuthContext'; 
 
 // URL e Instância de Cliente (sem alterações)
-const API_URL = 'http://localhost:3005'; 
+export const API_URL = 'http://localhost:3005'; 
 export const httpClient = axios.create({
   baseURL: API_URL,
   headers: {
-    'Content-Type': 'application/json',
+    
   },
 });
 
+
 // -----------------------------------------------------
-// 1. INTERCEPTOR DE REQUISIÇÃO (ADICIONA O TOKEN JWT) ⬅️ NOVO!
+// 1. INTERCEPTOR DE REQUISIÇÃO (ADICIONA O TOKEN JWT) 
 // -----------------------------------------------------
 httpClient.interceptors.request.use(
   (config) => {
@@ -54,3 +55,4 @@ httpClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+

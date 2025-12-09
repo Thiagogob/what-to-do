@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
+import { RoutePhoto } from './route-photo.entity'; 
 
 @Entity('routes')
 export class Route {
@@ -41,4 +42,7 @@ export class Route {
   @ManyToOne(() => User, user => user.routes)
   @JoinColumn({ name: 'userId' }) // Indica qual coluna armazena a FK
   user: User; // Propriedade de relação TypeORM
+
+  @OneToMany(() => RoutePhoto, photo => photo.route)
+  photos: RoutePhoto[];
 }

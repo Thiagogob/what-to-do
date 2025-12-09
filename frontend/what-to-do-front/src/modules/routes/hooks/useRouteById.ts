@@ -1,6 +1,6 @@
 // src/modules/routes/hooks/useRouteById.ts
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchRouteById } from '../routesApi';
 import { type Route } from '../types/route';
 
@@ -8,27 +8,36 @@ interface RouteDetailState {
   route: Route | null;
   loading: boolean;
   error: Error | null;
+  refetch: () => void;
 }
 
 export const useRouteById = (id: number): RouteDetailState => {
-  const [state, setState] = useState<RouteDetailState>({
+  const [state, setState] = useState<Omit<RouteDetailState, 'refetch'>>({
     route: null,
     loading: true,
     error: null,
   });
 
-  useEffect(() => {
+  const[refreshKey, setRefreshKey] = useState(0)
+
+  // Função que incrementa a chave, forçando a re-execução do useEffect
+  const refetch = useCallback(() => {
+    setRefreshKey(prev => prev + 1);
+  }, []); 
+
+useEffect(() => {
     async function loadRoute() {
-      // Assume que o useAuth ou o AuthGuard garantiram o token.
+      // Começa o carregamento
+      setState(s => ({ ...s, loading: true, error: null }));
+      
       try {
         const rawData = await fetchRouteById(id);
             
-            // ⬅️ CRÍTICO: Conversão do GeoJSON (Se for retornado como string)
+            // CRÍTICO: Conversão do GeoJSON (Se for retornado como string)
             const route: Route = {
                 ...rawData,
                 // Assumindo que geoJsonGeometry é uma string JSON, faça o parse:
                 geoJsonGeometry: rawData.geoJsonGeometry,
-                // Se já for um objeto JSON válido, apenas use: geoJsonGeometry: rawData.geoJsonGeometry,
             };
         setState({ route, loading: false, error: null });
       } catch (err) {
@@ -37,8 +46,9 @@ export const useRouteById = (id: number): RouteDetailState => {
         setState({ route: null, loading: false, error: err as Error });
       }
     }
+    // O re-fetch acontece quando id OU refreshKey mudam
     loadRoute();
-  }, [id]);
+  }, [id, refreshKey]); // ⬅️ Dependência adicionada
 
-  return state;
+  return { ...state, refetch }; // ⬅️ Retorna o estado e a função refetch
 };
