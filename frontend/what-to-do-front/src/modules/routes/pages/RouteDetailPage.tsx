@@ -1,7 +1,7 @@
 // src/modules/routes/pages/RouteDetailPage.tsx (Atualizado)
 
-import React from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { useRouteById } from '../hooks/useRouteById'; //
 import { RouteMap } from '../components/RouteMap';
 import { useElevationProfile } from '../hooks/useElevationProfile'; // 
@@ -18,7 +18,8 @@ export const RouteDetailPage: React.FC = () => {
 
   const{user} = useAuth();
   const currentUserId = user?.sub;
-
+  const [isDownloading, setIsDownloading] = useState(false);
+  
   const handleDeletePhoto = async (photoId: number) => {
     if (!window.confirm("Tem certeza que deseja remover esta foto? Esta ação não pode ser desfeita.")) {
         return;
@@ -44,6 +45,50 @@ export const RouteDetailPage: React.FC = () => {
     }
   };
 
+  const handleDownloadGpx = async () => {
+    setIsDownloading(true);
+
+    try {
+        const url = `/routes/download/${id}`;
+        
+        // 1. Faz a requisição usando o httpClient para incluir o token JWT
+        const response = await httpClient.get(url, {
+            // CRÍTICO: Configura a resposta como 'blob' (Binary Large Object)
+            // Isso permite que o Axios lide com o arquivo binário (GPX/XML)
+            responseType: 'blob', 
+        });
+
+        // 2. Cria um URL temporário para o BLOB retornado
+        const blob = new Blob([response.data], { type: 'application/gpx+xml' });
+        const downloadUrl = window.URL.createObjectURL(blob);
+        
+        // 3. Simula um clique em um link <a> para forçar o download
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        
+        // Define o nome do arquivo para o navegador
+        const fileName = route ? route.name.replace(/\s+/g, '_') + '.gpx' : 'route_download.gpx';
+        link.setAttribute('download', fileName);
+        
+        // Adiciona o link ao DOM, clica nele e remove
+        document.body.appendChild(link);
+        link.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(link);
+
+    } catch (err) {
+        console.error("Erro ao fazer download da rota:", err);
+        const status = (err as any).response?.status;
+        if (status === 401 || status === 403) {
+            alert("Acesso negado. Por favor, faça login novamente.");
+        } else {
+            alert("Falha ao baixar o arquivo GPX.");
+        }
+    } finally {
+        setIsDownloading(false);
+    }
+  };
+
   const geoJsonData: Feature | FeatureCollection | null = (route?.geoJsonGeometry as unknown as (Feature | FeatureCollection)) || null;
 
   const profileData = useElevationProfile(geoJsonData);
@@ -65,13 +110,37 @@ export const RouteDetailPage: React.FC = () => {
 
   const isOwner = currentUserId && route.userId === currentUserId;
 
+  const downloadUrl = `${API_URL}/routes/download/${id}`;
+
   // Exibição dos dados protegidos
   return (
     <div className="p-6">
-      <h1 className="text-3xl font-bold mb-4">{route.name} (ID #{route.id})</h1>
-      <p className="text-lg text-gray-700">Detalhes da rota</p>
+      
+<div className="flex justify-between items-start mb-4"> 
+            
+            {/* CONTAINER ESQUERDO: Agrupa Voltar + Título */}
+            <div className="flex items-center space-x-4">
+                
+                {/* 1. BOTÃO HOME/VOLTAR */}
+                <Link
+                    to="/" 
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-300 shadow-md flex items-center space-x-1"
+                    title="Voltar para a lista de rotas"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    <span>Voltar</span>
+                </Link>
+
+                {/* ⬅️ 2. NOVO CONTAINER CENTRALIZADOR */}
+                <div className="flex flex-col items-center">
+                    <h1 className="text-3xl font-bold mb-1">{route.name}</h1>
+                </div>
+            </div>
+            </div>
+
+      <p className="text-lg text-gray-700"></p>
       <div className="mt-8">
-                <h3 className="text-2xl font-semibold mb-3">Visualização Interativa (Mapbox)</h3>
+                <h3 className="text-2xl font-semibold mb-3">Mapa</h3>
                 
                 {/* ⬅️ Passamos o objeto JSON analisado */}
                 {geoJsonData ? (
@@ -85,6 +154,21 @@ export const RouteDetailPage: React.FC = () => {
                 <div className="mt-8">
           <h3 className="text-2xl font-semibold mb-3">Perfil Topográfico</h3>
           {geoJsonData && <ElevationChart data={profileData} />} 
+
+          
+            <button
+                onClick={handleDownloadGpx}
+                disabled={isDownloading} // Desabilita durante o download
+                className={`font-semibold py-2 px-4 rounded-lg transition duration-300 shadow-md flex items-center space-x-2 ${
+                    isDownloading 
+                        ? 'bg-gray-400 cursor-not-allowed' 
+                        : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
+                title="Download do arquivo GPX original"
+            >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                <span>{isDownloading ? 'Baixando...' : 'Download GPX'}</span>
+            </button>
       </div>
                 
       <div className="mt-4 p-4 bg-gray-100 rounded">
