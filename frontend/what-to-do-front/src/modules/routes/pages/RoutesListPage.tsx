@@ -82,9 +82,9 @@ export const RoutesListPage: React.FC = () => {
         if (!routes) return {};
 
         const categories: CategorizedRoutes = {
-            'Rotas Fáceis (distância < 40km e elevação < 450m)': [],
-            'Pra Quem Procura um Desafio (35km ≤ distância < 70km)': [],
-            'Rotas Longas (distância ≥ 70km)': [],
+            'Passeios divertidos': [],
+            'Pra Quem Procura um Desafio': [],
+            'Rotas Longas': [],
             'Moderadas/Outras': [], 
         };
 
@@ -94,11 +94,11 @@ export const RoutesListPage: React.FC = () => {
             const elev = route.elevationGainMeters;
 
             if (dist < CRITERIA.EASY_KM && elev < CRITERIA.EASY_ELEVATION) {
-                categories['Rotas Fáceis (distância < 40km e elevação < 450m)'].push(route);
+                categories['Passeios divertidos'].push(route);
             } else if (dist >= CRITERIA.EASY_KM && dist < CRITERIA.CHALLENGE_MAX_KM) {
-                categories['Pra Quem Procura um Desafio (35km ≤ distância < 70km)'].push(route);
+                categories['Pra Quem Procura um Desafio'].push(route);
             } else if (dist >= CRITERIA.CHALLENGE_MAX_KM) {
-                categories['Rotas Longas (distância ≥ 70km)'].push(route);
+                categories['Rotas Longas'].push(route);
             } else {
                 categories['Moderadas/Outras'].push(route);
             }
