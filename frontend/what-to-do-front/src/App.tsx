@@ -12,6 +12,7 @@ import { LoginPage } from './modules/auth/pages/LoginPage'; // Importar
 import { AuthRouteGuard } from './modules/auth/AuthRouteGuard'; // Importar o Guard
 import { UploadRoutePage } from './modules/routes/pages/UploadRoutePage';
 import { RouteEditPage } from './modules/routes/pages/RouteEditPage';
+import { RegisterPage } from './modules/auth/pages/RegisterPage';
 // Importe outros componentes/páginas aqui...
 
 const Layout = ({ children }: { children: React.ReactNode }) => (
@@ -36,6 +37,8 @@ export const App: React.FC = () => {
           <Route path="/index.html" element={<RoutesListPage />} />
           
           <Route path="/login" element={<LoginPage />} />
+
+          <Route path="/register" element={<RegisterPage />} />
           {/* Outras rotas (login, registro, etc.) */}
           {/* <Route path="/login" element={<LoginPage />} /> */}
           <Route

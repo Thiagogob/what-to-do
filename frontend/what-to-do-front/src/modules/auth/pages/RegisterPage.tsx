@@ -1,11 +1,11 @@
-// src/modules/auth/pages/LoginPage.tsx
+// src/modules/auth/pages/RegisterPage.tsx
 
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { useAuth } from '../AuthContext'; // Hook do AuthContext
-import { loginApi } from '../authApi'; // ⬅️ Vamos criar esta função na próxima etapa
+import { useAuth } from '../AuthContext'; 
+import { registerApi } from '../authApi'; // ⬅️ Nova função API
 
-export const LoginPage: React.FC = () => {
+export const RegisterPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -13,9 +13,8 @@ export const LoginPage: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth(); // Obtém a função login do contexto
+  const { login } = useAuth(); // Assume que o registro também autentica o usuário imediatamente
 
-  // Captura o caminho de onde o usuário veio (ex: /routes/20)
   const from = location.state?.from?.pathname || '/'; 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -24,19 +23,19 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // 2. Chama a função API para autenticar e obter o token
-      const response = await loginApi(username, password);
-      const token = response.access_token; // Seu backend retorna 'access_token' (snake_case)
+      // 1. Chama a função API para criar o usuário e obter o token
+      const response = await registerApi(username, password); 
+      const token = response.access_token; 
       
-      // 3. Atualiza o Contexto Global e armazena o token
+      // 2. Autentica e armazena o token
       login(token); 
       
-      // 4. Redireciona o usuário para a página original que ele tentou acessar
+      // 3. Redireciona o usuário para a página original ou home
       navigate(from, { replace: true });
 
     } catch (err) {
-      // Trata erros de requisição (ex: 401 Unauthorized)
-      const errorMsg = (err as any).response?.data?.message || 'Falha na autenticação. Verifique suas credenciais.';
+      // Trata erros de requisição (ex: usuário já existe)
+      const errorMsg = (err as any).response?.data?.message || 'Falha ao criar conta. Tente novamente.';
       setError(errorMsg);
 
     } finally {
@@ -48,7 +47,7 @@ export const LoginPage: React.FC = () => {
     <div className="flex items-center justify-center min-h-screen">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-2xl">
         <h2 className="text-3xl font-bold text-center text-gray-900">
-          Faça Login
+          Criar Conta
         </h2>
         
         {error && (
@@ -67,7 +66,7 @@ export const LoginPage: React.FC = () => {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
               disabled={isLoading}
             />
           </div>
@@ -81,7 +80,7 @@ export const LoginPage: React.FC = () => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
               disabled={isLoading}
             />
           </div>
@@ -91,18 +90,19 @@ export const LoginPage: React.FC = () => {
             className={`w-full py-2 px-4 font-semibold rounded-lg transition duration-300 ${
               isLoading
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-green-600 text-white hover:bg-green-700'
             }`}
             disabled={isLoading}
           >
-            {isLoading ? 'Entrando...' : 'Entrar'}
+            {isLoading ? 'Cadastrando...' : 'Criar Conta'}
           </button>
         </form>
-
+        
+        {/* Link para a página de Login */}
         <p className="mt-4 text-center text-sm text-gray-600">
-          Não tem uma conta?{' '}
-          <Link to="/register" className="font-medium text-green-600 hover:text-green-500">
-            Criar conta
+          Já tem uma conta?{' '}
+          <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500">
+            Faça Login
           </Link>
         </p>
       </div>

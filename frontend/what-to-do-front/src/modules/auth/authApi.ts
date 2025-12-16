@@ -17,3 +17,11 @@ export async function loginApi(username: string, password: string): Promise<Logi
   // O status de sucesso é 201 Created (HTTPStatus.CREATED no NestJS)
   return response.data;
 }
+
+export const registerApi = async (username: string, password: string) => {
+  const response = await httpClient.post<LoginResponse>('/users/register', {
+    username,
+    password,
+  });
+  return response.data; // Deve retornar o { access_token: string }
+};
