@@ -81,7 +81,7 @@ export const RouteEditPage: React.FC = () => {
   try {
       // 4. Envia o PATCH com FormData
       // Axios detecta FormData e define Content-Type: multipart/form-data
-      await httpClient.patch(`/api/routes/${id}`, formData); 
+      await httpClient.patch(`/routes/${id}`, formData); 
       
       alert('Rota e fotos atualizadas com sucesso!');
       navigate(`/routes/${id}`); 

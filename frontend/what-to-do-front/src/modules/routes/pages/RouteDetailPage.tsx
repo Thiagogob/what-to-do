@@ -13,6 +13,8 @@ import { useAuth } from '../../auth/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+const GCS_BASE_URL = import.meta.env.VITE_GCS_BASE_URL;
+
 export const RouteDetailPage: React.FC = () => {
   const { routeId } = useParams<{ routeId: string }>(); 
   const id = Number(routeId);
@@ -30,7 +32,7 @@ export const RouteDetailPage: React.FC = () => {
 
     try {
         // Rota backend: DELETE /routes/photos/:photoId
-        await httpClient.delete(`/api/routes/photos/${photoId}`); 
+        await httpClient.delete(`/routes/photos/${photoId}`); 
         alert('Foto removida com sucesso!');
         refetch(); // ⬅️ FORÇA O RECARREGAMENTO DOS DETALHES DA ROTA
     } catch (err) {
@@ -187,7 +189,8 @@ export const RouteDetailPage: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {route.photos.map((photo) => {
                             // 3. CONSTRUIR O URL COMPLETO DA IMAGEM
-                            const fullImageUrl = `${API_URL}${photo.url}`; 
+
+                            const fullImageUrl = `${GCS_BASE_URL}${photo.filePath}`; 
                             
                             return (
                                 // ⬅️ Adicionado 'relative' e 'group' para o botão flutuante

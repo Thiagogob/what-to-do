@@ -20,7 +20,8 @@ export interface RouteEditData {
 
 export interface RoutePhoto {
     id: number;
-    url: string; // Ex: /api/routes/photos/nome-arquivo.jpg
+    url: string;
+    filePath: string; // Ex: /api/routes/photos/nome-arquivo.jpg
     // Adicione outros campos se necessário (ex: filePath, order, createdAt)
 }
 // O DTO de resposta para a lista (se a API retornar um array diretamente)
