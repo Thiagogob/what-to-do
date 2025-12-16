@@ -18,6 +18,8 @@ server {
         proxy_ssl_server_name on;
 
         proxy_ssl_verify off;
+
+       
         # CRÍTICO: O Nginx intercepta /api/ e redireciona para a URL do Cloud Run Backend
         proxy_pass $backend_url;
 
