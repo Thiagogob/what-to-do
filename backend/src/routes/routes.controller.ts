@@ -1,13 +1,13 @@
 import { Controller, Post, UseInterceptors, UploadedFile, HttpException, HttpStatus, UseGuards, Get, Delete, HttpCode, Param, InternalServerErrorException, Res, NotFoundException, Patch, Body, Req, UploadedFiles } from '@nestjs/common';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
+import { diskStorage, memoryStorage } from 'multer';
 import { RoutesService } from './routes.service';
 import type { Response } from 'express';
 import { stringifyGPX } from '@we-gold/gpxjs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-
+import { GcsService } from '../gcs/gcs.service';
 import { 
     ApiTags, ApiOperation, ApiResponse, 
     ApiConsumes, ApiBody, ApiParam, ApiOkResponse,
@@ -23,15 +23,15 @@ import {
     UpdateRouteDto 
 } from './dto/route.dto';
 
-const getUploadPath = (): string => {
-    // Se NODE_ENV for 'test', usa um diretório temporário do sistema operacional (SO)
-    if (process.env.NODE_ENV === 'test') {
-        // Ex: /tmp/gpx-storage-test (no Linux)
-        return path.join(os.tmpdir(), 'gpx-storage-test'); 
-    }
-    // Para Produção/Desenvolvimento (Docker)
-    return '/usr/src/app/gpx-storage'; 
-};
+//const getUploadPath = (): string => {
+//    // Se NODE_ENV for 'test', usa um diretório temporário do sistema operacional (SO)
+//    if (process.env.NODE_ENV === 'test') {
+//        // Ex: /tmp/gpx-storage-test (no Linux)
+//        return path.join(os.tmpdir(), 'gpx-storage-test'); 
+//    }
+//    // Para Produção/Desenvolvimento (Docker)
+//    return '/usr/src/app/gpx-storage'; 
+//};
 
 const getPhotoUploadPath = (): string => {
     // Se NODE_ENV for 'test', usa um diretório temporário do sistema operacional (SO)
@@ -43,35 +43,41 @@ const getPhotoUploadPath = (): string => {
     return '/usr/src/app/photo-storage'; 
 };
 
-const ABSOLUTE_UPLOAD_DIR = getUploadPath(); 
+//const ABSOLUTE_UPLOAD_DIR = getUploadPath(); 
 
 const PHOTO_UPLOAD_DIR = getPhotoUploadPath();
 
-const storageOptions = diskStorage({
-    destination: ABSOLUTE_UPLOAD_DIR, 
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const fileName = `${file.fieldname}-${uniqueSuffix}.gpx`;
-        cb(null, fileName);
-    },
-});
+//const storageOptions = diskStorage({
+//    destination: ABSOLUTE_UPLOAD_DIR, 
+//    filename: (req, file, cb) => {
+//        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+//        const fileName = `${file.fieldname}-${uniqueSuffix}.gpx`;
+//        cb(null, fileName);
+//    },
+//});
 
-const photoStorageOptions = diskStorage({
-    destination: PHOTO_UPLOAD_DIR, 
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        // Garante que a extensão original seja mantida (ex: .jpg, .png)
-        const ext = path.extname(file.originalname);
-        const fileName = `${file.fieldname}-${uniqueSuffix}${ext}`;
-        cb(null, fileName);
-    },
-});
+//const photoStorageOptions = diskStorage({
+//    destination: PHOTO_UPLOAD_DIR, 
+//    filename: (req, file, cb) => {
+//        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+//        // Garante que a extensão original seja mantida (ex: .jpg, .png)
+//        const ext = path.extname(file.originalname);
+//        const fileName = `${file.fieldname}-${uniqueSuffix}${ext}`;
+//        cb(null, fileName);
+//    },
+//});
 
+const photoStorageOptions = { storage: memoryStorage() };
+
+const gpxStorageOptions = { storage: memoryStorage() };
 
 @ApiTags('Routes') 
 @Controller('routes')
 export class RoutesController {
-    constructor(private readonly routesService: RoutesService) {}
+    constructor(
+        private readonly routesService: RoutesService,
+        private readonly gcsService: GcsService,
+    ) {}
 
     // Rota: POST /routes/upload
     // @UseGuards(JwtAuthGuard) // 
@@ -97,7 +103,7 @@ export class RoutesController {
 
     @ApiResponse({ status: 500, description: 'Falha interna no processamento da rota.' })
 
-    @UseInterceptors(FileInterceptor('routeFile', { storage: storageOptions }))
+    @UseInterceptors(FileInterceptor('routeFile', gpxStorageOptions))
 
     async uploadRoute(@UploadedFile() file: Express.Multer.File,
                       @Req() req: any,): Promise<UploadResponseDto> {
@@ -108,7 +114,7 @@ export class RoutesController {
         const userId = req.user.sub;
 
 
-        const route = await this.routesService.processGpxFile(file.path, userId); 
+        const route = await this.routesService.processGpxFile(file, userId, this.gcsService); 
         
         console.log('LOG 5: Controller - Processamento Completo. Retornando resposta.');
 
@@ -179,7 +185,7 @@ async remove(
         const userId = req.user.sub;
         
         // 1. Chama o Service, que verifica a propriedade
-        await this.routesService.remove(+id, userId); 
+        await this.routesService.remove(+id, userId, this.gcsService); 
         // Retorna 204 (implícito pelo @HttpCode)
     }
 
@@ -214,16 +220,15 @@ async remove(
 
         try {
             // 2. LÊ O ARQUIVO GPX ORIGINAL DO DISCO
-            const gpxData = await fs.readFile(route.originalFilePath); 
+        const gpxBuffer = await this.gcsService.downloadFileAsBuffer(route.originalFilePath); 
 
-            // 3. Configura os headers de resposta
-            const fileName = `${route.name.replace(/\s+/g, '_')}_${route.id}.gpx`;
-            
-            res.setHeader('Content-Type', 'application/gpx+xml');
-            res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-            
-            // 4. Envia o buffer do arquivo (mais eficiente)
-            res.send(gpxData);
+        // ⬇️ GCS: Configura os headers de resposta
+        const fileName = `${route.name.replace(/\s+/g, '_')}_${route.id}.gpx`;
+        
+        res.setHeader('Content-Type', 'application/gpx+xml');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        
+        res.send(gpxBuffer);
             
         } catch (error) {
             // Se o arquivo não puder ser lido (ex: foi movido ou deletado manualmente)
@@ -238,14 +243,19 @@ async remove(
     @ApiOperation({ summary: 'Atualiza o nome da rota e/ou adiciona novas fotos à rota.' })
     @ApiConsumes('multipart/form-data')
     @ApiBody({ type: UpdateRouteDto }) // O DTO agora representa os campos de dados
+    //@UseInterceptors(
+    //    FileFieldsInterceptor([
+    //        // A chave 'photos' deve ser usada no frontend para o FormData
+    //        { name: 'photos', maxCount: 5 }, 
+    //    ], {
+    //        // Usar as opções de armazenamento de fotos que definimos
+    //        storage: photoStorageOptions 
+    //    })
+    //)
     @UseInterceptors(
         FileFieldsInterceptor([
-            // A chave 'photos' deve ser usada no frontend para o FormData
             { name: 'photos', maxCount: 5 }, 
-        ], {
-            // Usar as opções de armazenamento de fotos que definimos
-            storage: photoStorageOptions 
-        })
+        ], photoStorageOptions) // 
     )
     async updateRoute(
         @Param('id') id: string,
@@ -278,7 +288,7 @@ async remove(
         console.log("LOG: Quantidade de fotos:", photos.length);
         if (photos.length > 0) {
             // O service salvará os metadados de cada foto no DB
-            await this.routesService.saveRoutePhotos(routeId, photos);
+            await this.routesService.saveRoutePhotos(routeId, userId, photos, this.gcsService);
         }
 
         // Retorna a rota atualizada (o Service pode retornar a rota com as fotos carregadas)
@@ -301,7 +311,7 @@ async remove(
         const userId = req.user.sub;
     
         // 1. Chama o Service para executar a deleção e verificação de propriedade
-        await this.routesService.removePhoto(+photoId, userId); 
+        await this.routesService.removePhoto(+photoId, userId, this.gcsService); 
     
         // Retorna 204 No Content
     }

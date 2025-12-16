@@ -4,13 +4,16 @@ import axios from 'axios';
 import { clearAuthStorage } from '../modules/auth/AuthContext'; 
 
 // URL e Instância de Cliente (sem alterações)
-export const API_URL = 'http://localhost:3005'; 
+//export const API_URL = 'http://localhost:3005'; 
+const API_URL = import.meta.env.VITE_API_URL;
 export const httpClient = axios.create({
-  baseURL: API_URL,
+  baseURL: '/api',
   headers: {
     
   },
 });
+
+
 
 
 // -----------------------------------------------------

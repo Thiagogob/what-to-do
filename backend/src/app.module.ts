@@ -1,6 +1,6 @@
 // backend/src/app.module.ts
 
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
@@ -15,6 +15,7 @@ import { GcsModule } from './gcs/gcs.module';
 
 
 const PHOTO_STORAGE_PATH = '/usr/src/app/photo-storage';
+const logger = new Logger('AppModule');
 
 // --- CONFIGURAÇÃO CONDICIONAL DE BANCO DE DADOS ---
 // Esta lógica verifica se a aplicação está rodando em ambiente de teste (NODE_ENV=test).
@@ -35,37 +36,24 @@ const DatabaseModule =
         imports: [ConfigModule],
         inject: [ConfigService],
         useFactory: (config: ConfigService) => {
+            
+          // --- CONFIGURAÇÃO ÚNICA: HOST/PORTA ---
+          // Usamos a coalescência nula (??) para fornecer um valor padrão se a V.E. for undefined.
+          const host = config.get<string>('DATABASE_HOST') ?? '127.0.0.1';
+          // Corrigindo o erro de tipagem: garantimos que parseInt receba uma string.
+          const port = parseInt(config.get<string>('DATABASE_PORT') ?? '5432', 10);
           
-          // 1. O Cloud Run injeta esta variável quando configuramos a conexão Cloud SQL
-          const CLOUDSQL_CONNECTION_NAME = config.get<string>('CLOUDSQL_CONNECTION_NAME');
-
-          const commonConfig = {
-            type: 'postgres' as const, // As const é para garantir tipagem correta
-            username: config.get<string>('DB_USER') || 'postgres',
-            password: config.get<string>('DB_PASSWORD') || 'root',
-            database: config.get<string>('DB_DATABASE') || 'what-to-do-db',
+          return {
+            type: 'postgres' as const,
+            host: host, // Lê 127.0.0.1 ou o IP Público
+            port: port, // Lê 5432
+            username: config.get<string>('DATABASE_USER') || 'postgres',
+            password: config.get<string>('DATABASE_PASSWORD') || 'root',
+            database: config.get<string>('DATABASE_NAME') || 'what-to-do-db',
             entities: ALL_ENTITIES,
-            // A sincronização automática é PERIGOSA em produção. 
-            // Já que vamos rodar migrações manualmente (passo 2.2), MUDAMOS AQUI:
-            synchronize: CLOUDSQL_CONNECTION_NAME ? false : true, 
+            // Sincronização desativada em ambiente de produção (Cloud Run)
+            synchronize: false,
           };
-          
-          if (CLOUDSQL_CONNECTION_NAME) {
-            // Conexão Cloud SQL via Unix Socket
-            return {
-              ...commonConfig,
-              // O socketPath é um caminho fixo no ambiente Cloud Run
-              socketPath: `/cloudsql/${CLOUDSQL_CONNECTION_NAME}`,
-              // Não precisa de host/port
-            };
-          } else {
-            // Conexão Local (Docker Compose)
-            return {
-              ...commonConfig,
-              host: config.get<string>('DB_HOST'),      
-              port: config.get<number>('DB_PORT'),
-            };
-          }
         },
       });
 
@@ -76,6 +64,7 @@ const DatabaseModule =
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env', 
+      ignoreEnvFile: process.env.NODE_ENV === 'production' || !!process.env.CLOUDSQL_CONNECTION_NAME,
     }),
     
     // 2. Módulo de Banco de Dados Condicional

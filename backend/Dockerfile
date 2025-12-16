@@ -12,14 +12,15 @@ COPY package-lock.json .
 COPY nest-cli.json . 
 COPY tsconfig.json .
 # Se você tiver tsconfig.build.json, copie-o também
-COPY tsconfig.build.json . 
+COPY tsconfig.build.json .
 
+RUN apk add --no-cache build-base python3
 # 1.2 Instalar dependências
 RUN npm install
 
 # 1.3 COPIAR CÓDIGO FONTE (A pasta 'src' do backend)
 # Copia o código fonte do backend para a raiz do WORKDIR
-# Se você usa /backend/src, o destino é /usr/src/app/src
+# Se você usa /src, o destino é /usr/src/app/src
 COPY src src
 
 # 1.4 BUILD: Compilar o projeto backend
@@ -47,10 +48,9 @@ COPY --from=builder /usr/src/app/dist dist
 
 # 2.3 Copiar quaisquer outros arquivos de runtime
 # Se você precisar de arquivos .env, .yaml, etc., copie-os aqui
-
-# 3. COMANDO DE INICIALIZAÇÃO
+COPY entrypoint.sh .
 # Define a porta que o NestJS estará ouvindo
-EXPOSE 3005
+EXPOSE 8080
 
 # O comando final para rodar o código compilado
-CMD ["node", "dist/apps/backend/main.js"]
+CMD ["/bin/sh", "./entrypoint.sh"]

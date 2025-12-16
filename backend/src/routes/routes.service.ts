@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Or } from 'typeorm';
 import { Route } from './entities/route.entity';
 import * as fs from 'fs/promises';
+import { GcsService } from '../gcs/gcs.service'; // <-- Novo Import
 
 import {  
     parseGPXWithCustomParser,
@@ -11,8 +12,8 @@ import {
 } from '@we-gold/gpxjs'; // 
 import { DOMParser } from 'xmldom-qsa';
 import { RoutePhoto } from './entities/route-photo.entity';
-import path from 'path';
-
+//import path from 'path';
+import * as path from 'path';
 
 interface UpdateRouteDto {
     name?: string;
@@ -31,16 +32,33 @@ export class RoutesService {
     private photosRepository: Repository<RoutePhoto>,
   ) {}
 
-  async processGpxFile(filePath: string, userId: number): Promise<Route> {
+  async processGpxFile(file: Express.Multer.File, userId: number, gcsService: GcsService): Promise<Route> {
+
+    const filePath = file.path; // Não é mais o caminho local, mas vamos reusar a variável para o caminho do GCS
+
+    // 1. FAZER UPLOAD DO ARQUIVO GPX PARA O GCS
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const destinationPath = `gpx/${userId}/${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`;
+    
+    // O Multer em memória fornece o buffer (file.buffer)
+    const publicUrl = await gcsService.uploadFile(
+        file.buffer, 
+        destinationPath,
+        file.mimetype,
+    );
+    
+    // filePath agora será o caminho do GCS (destinationPath)
+    const gpxFilePathGCS = destinationPath;
+
     try {
       // 1. LER O ARQUIVO SALVO PELO MULTER
-      console.log('LOG 2: Service - Iniciando Leitura do Arquivo:', filePath);
+      console.log('LOG 2: Service - Iniciando Parsing do Buffer GPX.');
 
-      const fileBuffer = await fs.readFile(filePath);
+      const gpxData = file.buffer.toString('utf8');
 
       console.log('LOG 3: Service - Leitura Concluída. Iniciando Parsing.');
 
-      const gpxData = fileBuffer.toString('utf8')
+      //const gpxData = fileBuffer.toString('utf8')
 
       const domParserFunction = (txt: string): Document | null =>
         new DOMParser().parseFromString(txt, "text/xml");
@@ -95,7 +113,7 @@ export class RoutesService {
 
         geoJsonGeometry: geoJsonGeometry,
 
-        originalFilePath: filePath, 
+        originalFilePath: gpxFilePathGCS, 
 
         userId: userId,
 
@@ -111,21 +129,19 @@ export class RoutesService {
       //await fs.unlink(filePath); 
       return savedRoute;
 
-    } catch (error) {
-      console.log(error)
-      // Garantir a exclusão do arquivo em caso de erro
-      await fs.unlink(filePath).catch(() => {}
-      
-    );
-      
-      if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
-        throw error;
-      }
-      // Captura de erro genérico
-      console.error(error);
-      throw new InternalServerErrorException('Falha interna no processamento da rota.');
+} catch (error) {
+        console.log(error);
+        // Não é mais necessário o fs.unlink(filePath) aqui! O GCS não usa caminhos locais.
+        // Se houver um erro de parsing, você pode deletar o arquivo do GCS:
+        await gcsService.deleteFile(gpxFilePathGCS).catch(() => {});
+        
+        if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
+            throw error;
+        }
+        console.error(error);
+        throw new InternalServerErrorException('Falha interna no processamento da rota.');
     }
-  }
+}
 
   async findAll(): Promise<Route[]> {
     //  O TypeORM faz a busca sem critérios.
@@ -152,7 +168,7 @@ export class RoutesService {
     return route;
   }
 
-  async remove(id: number, userId: number) {
+  async remove(id: number, userId: number, gcsService: GcsService) {
     const route = await this.routesRepository.findOneBy({ id });
     
     if (!route) {
@@ -166,7 +182,7 @@ export class RoutesService {
     // 1. Tentar remover o arquivo GPX do disco
     if (route.originalFilePath) {
         try {
-            await fs.unlink(route.originalFilePath);
+            await gcsService.deleteFile(route.originalFilePath);
             console.log(`Arquivo GPX removido do disco: ${route.originalFilePath}`);
         } catch (fileError) {
             console.warn(`Aviso: Não foi possível remover o arquivo GPX do disco em ${route.originalFilePath}.`, fileError);
@@ -228,32 +244,58 @@ async update(id: number, userId: number, updateDto: UpdateRouteDto): Promise<Rou
 }
 
 
-async saveRoutePhotos(routeId: number, files: Express.Multer.File[]): Promise<RoutePhoto[]> {
+async saveRoutePhotos(
+  routeId: number, 
+  
+  userId: number,
+
+  files: Express.Multer.File[],
+
+  gcsService: GcsService
+): Promise<RoutePhoto[]> {
   console.log("LOG: saveRoutePhotos chamado, mas sem arquivos.");
     if (!files || files.length === 0) {
         return [];
     }
-    console.log(`LOG: Salvando ${files.length} arquivos. Primeiro caminho: ${files[0].path}`); // ⬅️ IMPORTANTE
-    // 1. Mapear os arquivos para entidades de foto
-    const photoEntities = files.map(file => {
-        return this.photosRepository.create({
-            // ⬅️ Remova routeId daqui e use a propriedade de relação (passo 2)
-            // routeId: routeId, 
-            
-            // ⬅️ ADICIONE A RELAÇÃO COMPLETA:
-            route: { id: routeId } as Route, 
+    const savedPhotos: RoutePhoto[] = [];
+    
+    // 1. Iterar sobre todos os arquivos
+    for (const file of files) {
+        // Gera um nome único e um caminho de destino dentro do bucket
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        // Exemplo de caminho no GCS: 'photos/123/photo-17000000.jpg'
+        const destinationPath = `photos/${userId}/${file.fieldname}-${uniqueSuffix}${ext}`; 
 
-            filePath: file.path,
-            url: `/api/routes/photos/${path.basename(file.filename || file.path)}`,
-            order: 0,
-        });
-    });
-    console.log("LOG: Persistência concluída.");
-    // 2. Salva as novas entidades de foto
-    return this.photosRepository.save(photoEntities);
+        try {
+            // 2. FAZ O UPLOAD PARA O GCS usando o buffer (file.buffer)
+            const publicUrl = await gcsService.uploadFile(
+                file.buffer, // O Multer em memória fornece o buffer
+                destinationPath,
+                file.mimetype,
+            );
+
+            // 3. CRIA E SALVA A ENTIDADE DE FOTO NO DB
+            const photoEntity = this.photosRepository.create({
+                route: { id: routeId } as Route,
+                filePath: destinationPath, // Salva o caminho do GCS (não é mais o local disk path)
+                url: publicUrl, // Salva o URL público completo para fácil acesso
+                order: 0,
+            });
+
+            const savedPhoto = await this.photosRepository.save(photoEntity);
+            savedPhotos.push(savedPhoto);
+
+        } catch (error) {
+            console.error(`Falha ao fazer upload da foto ${file.originalname} para o GCS:`, error);
+            // Continua para o próximo arquivo se um falhar, ou lança um erro, dependendo da sua regra de negócio
+        }
+    }
+
+    return savedPhotos;
 }
 
-async removePhoto(photoId: number, userId: number): Promise<void> {
+async removePhoto(photoId: number, userId: number, gcsService: GcsService): Promise<void> {
         
         // 1. Encontrar a foto e carregar a rota e o proprietário da rota associada
         const photo = await this.photosRepository.findOne({
@@ -277,18 +319,16 @@ async removePhoto(photoId: number, userId: number): Promise<void> {
         // 3. DELEÇÃO FÍSICA DO ARQUIVO
         const filePathToDelete = photo.filePath; // O caminho absoluto que o Multer salvou
         
-        try {
-            await fs.unlink(filePathToDelete);
-            console.log(`LOG: Arquivo deletado fisicamente: ${filePathToDelete}`);
-        } catch (error) {
-            // É comum o arquivo já ter sido deletado (ex: teste ou erro manual).
-            // Se o erro indicar que o arquivo não existe, ignoramos para prosseguir com o DB.
-            if (error.code !== 'ENOENT') { // ENOENT = File not found
-                console.error(`Falha ao deletar o arquivo físico ${filePathToDelete}:`, error);
-                // Opcional: Lançar um erro se a falha for grave
-                // throw new InternalServerErrorException('Falha ao deletar arquivo no disco.');
-            }
+try {
+        // Chamada para o GCS Service para deletar o arquivo do Bucket
+        await gcsService.deleteFile(filePathToDelete); // <-- NOVO MÉTODO
+        console.log(`LOG: Arquivo deletado do GCS: ${filePathToDelete}`);
+    } catch (error) {
+        // Tratamento de erro do GCS (ex: arquivo não encontrado)
+        if (error.code !== 404) { // 404 é File not found no GCS API
+            console.error(`Falha ao deletar o arquivo GCS ${filePathToDelete}:`, error);
         }
+    }
 
         // 4. DELEÇÃO DO REGISTRO NO BANCO DE DADOS
         await this.photosRepository.delete(photoId);

@@ -10,7 +10,7 @@ import type { LoginResponse } from './types/auth';
  * Envia credenciais para o backend e retorna o token JWT.
  */
 export async function loginApi(username: string, password: string): Promise<LoginResponse> {
-  const response = await httpClient.post<LoginResponse>('/auth/login', {
+  const response = await httpClient.post<LoginResponse>('/api/auth/login', {
     username,
     password,
   });

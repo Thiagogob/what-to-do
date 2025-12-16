@@ -32,6 +32,8 @@ export const App: React.FC = () => {
         <Routes>
           {/* Rota principal, que exibe a lista de rotas */}
           <Route path="/" element={<RoutesListPage />} />
+
+          <Route path="/index.html" element={<RoutesListPage />} />
           
           <Route path="/login" element={<LoginPage />} />
           {/* Outras rotas (login, registro, etc.) */}

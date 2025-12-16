@@ -1,5 +1,5 @@
 // backend/src/gcs/gcs.service.ts
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
 import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
@@ -66,4 +66,28 @@ constructor(private readonly configService: ConfigService) {
         });
     });
   }
+
+  async deleteFile(destinationPath: string): Promise<void> {
+    const bucket = storage.bucket(this.bucketName);
+    const file = bucket.file(destinationPath);
+    
+    // Deleta o arquivo. O 'ignoreNotFound: true' evita falha se o arquivo já não existir.
+    await file.delete({ ignoreNotFound: true });
+  }
+
+  async downloadFileAsBuffer(sourcePath: string): Promise<Buffer> {
+    const bucket = storage.bucket(this.bucketName);
+    const file = bucket.file(sourcePath);
+
+    try {
+        const [buffer] = await file.download();
+        return buffer;
+    } catch (e) {
+        // Se o arquivo não for encontrado no GCS, lança 404
+        if (e.code === 404) {
+            throw new NotFoundException(`Arquivo não encontrado no GCS: ${sourcePath}`);
+        }
+        throw e;
+    }
+}
 }

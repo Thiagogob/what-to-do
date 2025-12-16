@@ -7,8 +7,11 @@ import { RouteMap } from '../components/RouteMap';
 import { useElevationProfile } from '../hooks/useElevationProfile'; // 
 import { ElevationChart } from '../components/ElevationChart'; // 
 import type { Feature, FeatureCollection } from 'geojson';
-import { API_URL, httpClient } from '../../../api/httpClient';
+import { httpClient } from '../../../api/httpClient';
 import { useAuth } from '../../auth/AuthContext';
+
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 export const RouteDetailPage: React.FC = () => {
   const { routeId } = useParams<{ routeId: string }>(); 
@@ -27,7 +30,7 @@ export const RouteDetailPage: React.FC = () => {
 
     try {
         // Rota backend: DELETE /routes/photos/:photoId
-        await httpClient.delete(`/routes/photos/${photoId}`); 
+        await httpClient.delete(`/api/routes/photos/${photoId}`); 
         alert('Foto removida com sucesso!');
         refetch(); // ⬅️ FORÇA O RECARREGAMENTO DOS DETALHES DA ROTA
     } catch (err) {

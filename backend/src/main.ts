@@ -7,10 +7,14 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  app.setGlobalPrefix('api');
+  
   app.enableCors({
-    origin: 'http://localhost:5174', // ⚠️ O domínio do seu servidor Vite
+    origin: ['http://localhost:5174', //
+    'https://what-to-do-frontend-485595135682.southamerica-east1.run.app',
+  ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true, // Se você precisar enviar cookies/JWT (embora tenhamos usado localStorage)
+    credentials: true, // Se  precisar enviar cookies/JWT
   });
   
   // 1. Configuração do Swagger

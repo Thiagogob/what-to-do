@@ -65,7 +65,7 @@ export const RoutesListPage: React.FC = () => {
     }
 
     try {
-        await httpClient.delete(`/routes/${routeId}`);
+        await httpClient.delete(`/api/routes/${routeId}`);
         alert('Rota removida com sucesso!');
         refetch(); // ⬅️ Recarrega a lista
     } catch (err) {
