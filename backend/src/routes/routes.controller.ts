@@ -67,7 +67,7 @@ const PHOTO_UPLOAD_DIR = getPhotoUploadPath();
 //    },
 //});
 
-const photoStorageOptions = { storage: memoryStorage() };
+//const photoStorageOptions = { storage: memoryStorage() };
 
 const gpxStorageOptions = { storage: memoryStorage() };
 
@@ -255,7 +255,9 @@ async remove(
     @UseInterceptors(
         FileFieldsInterceptor([
             { name: 'photos', maxCount: 5 }, 
-        ], photoStorageOptions) // 
+        ], {
+            storage: memoryStorage()
+        }) // 
     )
     async updateRoute(
         @Param('id') id: string,

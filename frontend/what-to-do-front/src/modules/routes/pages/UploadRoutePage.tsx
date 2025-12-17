@@ -58,7 +58,7 @@ export const UploadRoutePage: React.FC = () => {
 
         try {
             // O axios/httpClient enviará o cabeçalho 'Authorization' via interceptor
-            const response = await httpClient.post('/api/routes/upload', formData, {
+            const response = await httpClient.post('/routes/upload', formData, {
                 // Necessário para upload de arquivos
                 headers: { 'Content-Type': 'multipart/form-data' }, 
             });

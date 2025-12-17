@@ -54,7 +54,7 @@ constructor(private readonly configService: ConfigService) {
           cacheControl: 'public, max-age=31536000',
         },
         // Garante que o arquivo será público para leitura (se o bucket permitir)
-        public: true, 
+        //public: true, 
       });
 
       passthroughStream.pipe(writeStream)
