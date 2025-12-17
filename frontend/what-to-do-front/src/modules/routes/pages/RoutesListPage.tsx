@@ -13,7 +13,6 @@ interface CategorizedRoutes {
     [key: string]: Route[];
 }
 
-// ⬅️ CRITÉRIOS DE FILTRO
 const CRITERIA = {
     EASY_KM: 40,
     EASY_ELEVATION: 450,

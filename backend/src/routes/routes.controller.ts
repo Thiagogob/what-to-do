@@ -180,7 +180,7 @@ export class RoutesController {
     @ApiNotFoundResponse({ description: 'Rota com o ID especificado não foi encontrada.' })
 async remove(
         @Param('id') id: string,
-        @Req() req: any, // ⬅️ Para obter o ID do usuário
+        @Req() req: any, // 
     ) {
         const userId = req.user.sub;
         
@@ -243,15 +243,8 @@ async remove(
     @ApiOperation({ summary: 'Atualiza o nome da rota e/ou adiciona novas fotos à rota.' })
     @ApiConsumes('multipart/form-data')
     @ApiBody({ type: UpdateRouteDto }) // O DTO agora representa os campos de dados
-    //@UseInterceptors(
-    //    FileFieldsInterceptor([
-    //        // A chave 'photos' deve ser usada no frontend para o FormData
-    //        { name: 'photos', maxCount: 5 }, 
-    //    ], {
-    //        // Usar as opções de armazenamento de fotos que definimos
-    //        storage: photoStorageOptions 
-    //    })
-    //)
+
+
     @UseInterceptors(
         FileFieldsInterceptor([
             { name: 'photos', maxCount: 5 }, 
@@ -270,7 +263,7 @@ async remove(
         const routeId = +id;
         const userId = req.user.sub;
         
-        // ⬅️ CORREÇÃO DE SEGURANÇA: Usa encadeamento opcional para evitar 'TypeError'
+       
         const photos = files?.photos || []; 
 
         // ----------------------------------------------------
@@ -286,7 +279,7 @@ async remove(
         // ----------------------------------------------------
         // 2. SALVAR AS FOTOS (Service)
         // ----------------------------------------------------
-        console.log("LOG: Iniciando PATCH. Files recebidos:", files); // ⬅️ IMPORTANTE
+        console.log("LOG: Iniciando PATCH. Files recebidos:", files); // 
         console.log("LOG: Quantidade de fotos:", photos.length);
         if (photos.length > 0) {
             // O service salvará os metadados de cada foto no DB
@@ -298,7 +291,7 @@ async remove(
     }
 
     @UseGuards(JwtAuthGuard)
-    @Delete('photos/:photoId') // ⬅️ Nova rota DELETE
+    @Delete('photos/:photoId') // 
     @HttpCode(HttpStatus.NO_CONTENT) // Retorna 204 No Content em caso de sucesso
     @ApiBearerAuth('jwt')
     @ApiOperation({ summary: 'Remove uma foto da rota pelo ID. Somente o proprietário da rota pode fazer isso.' })

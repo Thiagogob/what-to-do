@@ -203,20 +203,10 @@ export class RoutesService {
 
 async update(id: number, userId: number, updateDto: UpdateRouteDto): Promise<Route> {
     
-    // Opção 1: Usando Array OR para buscar
-    //const route = await this.routesRepository.findOne({
-    //    where: [
-    //        // Critério 1: Rota pertence ao usuário logado
-    //        { id, userId }, 
-    //        // Critério 2 (temporário): Rota sem dono (NULL) *OU* se o usuário é admin.
-    //        // Para simplificar, vamos usar uma consulta mais explícita:
-    //    ],
-    //});
 
-    // ⬅️ SOLUÇÃO MAIS SEGURA E EXPLÍCITA: FindOne e depois checagem
    const routeToUpdate = await this.routesRepository.findOne({
         where: { id },
-        relations: ['photos'], // ⬅️ CORREÇÃO CRÍTICA: Força o TypeORM a carregar 'photos'
+        relations: ['photos'], // 
     });
 
  
@@ -224,8 +214,7 @@ async update(id: number, userId: number, updateDto: UpdateRouteDto): Promise<Rou
         throw new NotFoundException(`Rota com ID ${id} não encontrada.`);
     }
 
-    // ⬅️ NOVA CHECAGEM: Verifica se o usuário logado é o proprietário (ou se a rota é pública/antiga)
-    // Se a rota tem um dono E o dono não é o usuário logado, LANÇA ERRO.
+   
     if (routeToUpdate.userId !== null && routeToUpdate.userId !== userId) {
          throw new NotFoundException(`Rota com ID ${id} não encontrada.`); // Lançar 404 por segurança
     }
