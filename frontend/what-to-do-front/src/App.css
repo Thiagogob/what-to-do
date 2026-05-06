@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+* {
+  font-family: 'Inter', sans-serif;
+}
+
 
 .scrollbar-hide::-webkit-scrollbar {
     display: none;

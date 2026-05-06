@@ -1,232 +1,197 @@
-// src/modules/routes/pages/RouteDetailPage.tsx (Atualizado)
-
 import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useRouteById } from '../hooks/useRouteById'; //
+import { useParams, useNavigate } from 'react-router-dom';
+import { useRouteById } from '../hooks/useRouteById';
 import { RouteMap } from '../components/RouteMap';
-import { useElevationProfile } from '../hooks/useElevationProfile'; // 
-import { ElevationChart } from '../components/ElevationChart'; // 
+import { useElevationProfile } from '../hooks/useElevationProfile';
+import { ElevationChart } from '../components/ElevationChart';
 import type { Feature, FeatureCollection } from 'geojson';
 import { httpClient } from '../../../api/httpClient';
 import { useAuth } from '../../auth/AuthContext';
 
-
-const API_URL = import.meta.env.VITE_API_URL;
-
-const GCS_BASE_URL = import.meta.env.VITE_GCS_BASE_URL;
-
 export const RouteDetailPage: React.FC = () => {
-  const { routeId } = useParams<{ routeId: string }>(); 
+  const { routeId } = useParams<{ routeId: string }>();
   const id = Number(routeId);
+  const navigate = useNavigate();
   const { route, loading, error, refetch } = useRouteById(id);
-
-
-  const{user} = useAuth();
+  const { user } = useAuth();
   const currentUserId = user?.sub;
   const [isDownloading, setIsDownloading] = useState(false);
-  
+
   const handleDeletePhoto = async (photoId: number) => {
-    if (!window.confirm("Tem certeza que deseja remover esta foto? Esta ação não pode ser desfeita.")) {
-        return;
-    }
-
+    if (!window.confirm('Tem certeza que deseja remover esta foto? Esta ação não pode ser desfeita.')) return;
     try {
-        // Rota backend: DELETE /routes/photos/:photoId
-        await httpClient.delete(`/routes/photos/${photoId}`); 
-        alert('Foto removida com sucesso!');
-        refetch(); // ⬅️ FORÇA O RECARREGAMENTO DOS DETALHES DA ROTA
+      await httpClient.delete(`/routes/photos/${photoId}`);
+      refetch();
     } catch (err) {
-        const status = (err as any).response?.status;
-        let msg = "Falha ao remover a foto. Tente novamente.";
-
-        if (status === 404) {
-            msg = "Foto não encontrada.";
-        } else if (status === 403) {
-            msg = "Você não tem permissão para remover esta foto (não é o proprietário da rota).";
-        }
-        
-        alert(msg);
-        console.error("Erro ao deletar foto:", err);
+      const status = (err as any).response?.status;
+      alert(
+        status === 404 ? 'Foto não encontrada.' :
+        status === 403 ? 'Você não tem permissão para remover esta foto.' :
+        'Falha ao remover a foto. Tente novamente.'
+      );
     }
   };
 
   const handleDownloadGpx = async () => {
     setIsDownloading(true);
-
     try {
-        const url = `/routes/download/${id}`;
-        
-        // 1. Faz a requisição usando o httpClient para incluir o token JWT
-        const response = await httpClient.get(url, {
-            // CRÍTICO: Configura a resposta como 'blob' (Binary Large Object)
-            // Isso permite que o Axios lide com o arquivo binário (GPX/XML)
-            responseType: 'blob', 
-        });
-
-        // 2. Cria um URL temporário para o BLOB retornado
-        const blob = new Blob([response.data], { type: 'application/gpx+xml' });
-        const downloadUrl = window.URL.createObjectURL(blob);
-        
-        // 3. Simula um clique em um link <a> para forçar o download
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        
-        // Define o nome do arquivo para o navegador
-        const fileName = route ? route.name.replace(/\s+/g, '_') + '.gpx' : 'route_download.gpx';
-        link.setAttribute('download', fileName);
-        
-        // Adiciona o link ao DOM, clica nele e remove
-        document.body.appendChild(link);
-        link.click();
-        window.URL.revokeObjectURL(downloadUrl);
-        document.body.removeChild(link);
-
+      const response = await httpClient.get(`/routes/download/${id}`, { responseType: 'blob' });
+      const blob = new Blob([response.data], { type: 'application/gpx+xml' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.setAttribute('download', route ? `${route.name.replace(/\s+/g, '_')}.gpx` : 'route.gpx');
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(link);
     } catch (err) {
-        console.error("Erro ao fazer download da rota:", err);
-        const status = (err as any).response?.status;
-        if (status === 401 || status === 403) {
-            alert("Acesso negado. Por favor, faça login novamente.");
-        } else {
-            alert("Falha ao baixar o arquivo GPX.");
-        }
+      const status = (err as any).response?.status;
+      alert(status === 401 || status === 403 ? 'Acesso negado. Por favor, faça login novamente.' : 'Falha ao baixar o arquivo GPX.');
     } finally {
-        setIsDownloading(false);
+      setIsDownloading(false);
     }
   };
 
-  const geoJsonData: Feature | FeatureCollection | null = (route?.geoJsonGeometry as unknown as (Feature | FeatureCollection)) || null;
-
+  const geoJsonData: Feature | FeatureCollection | null =
+    (route?.geoJsonGeometry as unknown as Feature | FeatureCollection) || null;
   const profileData = useElevationProfile(geoJsonData);
+
   if (!routeId || isNaN(id)) {
-    return <div className="p-4 text-red-500">ID da Rota inválido.</div>;
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><p className="text-rose-500">ID da Rota inválido.</p></div>;
   }
 
   if (loading) {
-    return <div className="p-8">Carregando detalhes da rota #{id}...</div>;
-  }
-  
-  if (error) {
-    return <div className="p-8 text-red-500">Erro ao buscar detalhes da rota: {error.message}</div>;
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 font-medium">Carregando rota...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (!route) {
-      return <div className="p-8">Detalhes da Rota #{id} não encontrados.</div>;
+  if (error || !route) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p className="text-rose-500">{error?.message ?? 'Rota não encontrada.'}</p>
+      </div>
+    );
   }
 
   const isOwner = currentUserId && route.userId === currentUserId;
 
-  const downloadUrl = `${API_URL}/routes/download/${id}`;
-
-  // Exibição dos dados protegidos
   return (
-    <div className="p-6">
-      
-<div className="flex justify-between items-start mb-4"> 
-            
-            {/* CONTAINER ESQUERDO: Agrupa Voltar + Título */}
-            <div className="flex items-center space-x-4">
-                
-                {/* 1. BOTÃO HOME/VOLTAR */}
-                <Link
-                    to="/" 
-                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition duration-300 shadow-md flex items-center space-x-1"
-                    title="Voltar para a lista de rotas"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                    <span>Voltar</span>
-                </Link>
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-emerald-900 to-slate-900 text-white px-6 py-5">
+        <div className="max-w-5xl mx-auto flex items-center gap-4">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1.5 text-slate-300 hover:text-white text-sm font-medium transition-colors duration-200"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Voltar
+          </button>
+          <div className="w-px h-5 bg-slate-600" />
+          <h1 className="text-lg font-bold truncate">{route.name}</h1>
+        </div>
+      </div>
 
-                {/* ⬅️ 2. NOVO CONTAINER CENTRALIZADOR */}
-                <div className="flex flex-col items-center">
-                    <h1 className="text-3xl font-bold mb-1">{route.name}</h1>
-                </div>
-            </div>
-            </div>
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-1">Distância Total</p>
+            <p className="text-2xl font-bold text-slate-800">{Number(route.distanceKm).toFixed(2)} <span className="text-base font-medium text-slate-500">km</span></p>
+          </div>
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <p className="text-xs text-slate-400 uppercase tracking-wide font-medium mb-1">Ganho de Elevação</p>
+            <p className="text-2xl font-bold text-slate-800">{Number(route.elevationGainMeters).toFixed(0)} <span className="text-base font-medium text-slate-500">m</span></p>
+          </div>
+        </div>
 
-      <p className="text-lg text-gray-700"></p>
-      <div className="mt-8">
-                <h3 className="text-2xl font-semibold mb-3">Mapa</h3>
-                
-                {/* ⬅️ Passamos o objeto JSON analisado */}
-                {geoJsonData ? (
-                    <RouteMap geoJson={geoJsonData} />
-                ) : (
-                    <div className="bg-red-100 p-4 rounded text-red-700">
-                        Erro ao carregar dados do mapa. O formato GeoJSON está inválido.
-                    </div>
-                )}
+        {/* Map */}
+        <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h2 className="font-semibold text-slate-800">Mapa</h2>
+          </div>
+          {geoJsonData ? (
+            <RouteMap geoJson={geoJsonData} />
+          ) : (
+            <div className="p-6 text-rose-600 text-sm">Erro ao carregar dados do mapa.</div>
+          )}
+        </div>
 
-                <div className="mt-8">
-          <h3 className="text-2xl font-semibold mb-3">Perfil Topográfico</h3>
-          {geoJsonData && <ElevationChart data={profileData} />} 
-
-          
+        {/* Elevation + Download */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h2 className="font-semibold text-slate-800">Perfil Topográfico</h2>
             <button
-                onClick={handleDownloadGpx}
-                disabled={isDownloading} // Desabilita durante o download
-                className={`font-semibold py-2 px-4 rounded-lg transition duration-300 shadow-md flex items-center space-x-2 ${
-                    isDownloading 
-                        ? 'bg-gray-400 cursor-not-allowed' 
-                        : 'bg-green-600 hover:bg-green-700 text-white'
-                }`}
-                title="Download do arquivo GPX original"
+              onClick={handleDownloadGpx}
+              disabled={isDownloading}
+              className={`flex items-center gap-2 text-sm font-medium py-1.5 px-4 rounded-full transition-colors duration-200 ${
+                isDownloading
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+              }`}
             >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                <span>{isDownloading ? 'Baixando...' : 'Download GPX'}</span>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              {isDownloading ? 'Baixando...' : 'Download GPX'}
             </button>
-      </div>
-                
-      <div className="mt-4 p-4 bg-gray-100 rounded">
-        <p>Distância Total: <span className="font-semibold">{Number(route.distanceKm).toFixed(2)} km</span></p>
-        <p>Ganho de Elevação: <span className="font-semibold">{Number(route.elevationGainMeters).toFixed(2)} m</span></p>
-        {/* Aqui você renderizaria o mapa ou GeoJSON completo */}
-      </div>
+          </div>
+          <div className="p-5">
+            {geoJsonData && <ElevationChart data={profileData} />}
+          </div>
+        </div>
 
-      <div className="mt-8">
-                <h3 className="text-2xl font-semibold mb-3 border-b pb-2">Fotos da Rota ({route.photos?.length || 0})</h3>
-                
-                {route.photos && route.photos.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {route.photos.map((photo) => {
-                            // 3. CONSTRUIR O URL COMPLETO DA IMAGEM
-
-                            const fullImageUrl = `${GCS_BASE_URL}${photo.filePath}`; 
-                            
-                            return (
-                                // ⬅️ Adicionado 'relative' e 'group' para o botão flutuante
-                                <div 
-                                    key={photo.id} 
-                                    className="relative rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition duration-200 bg-white group"
-                                >
-                                    <img 
-                                        src={fullImageUrl} 
-                                        alt={`Foto da rota ${route.name}`} 
-                                        className="w-full h-48 object-cover"
-                                        loading="lazy"
-                                    />
-                                    
-                                    {/* ⬅️ BOTÃO DE DELETAR CONDICIONAL */}
-                                    {isOwner && (
-                                        <button
-                                            onClick={() => handleDeletePhoto(photo.id)}
-                                            // Posição: Canto superior direito, visível ao passar o mouse
-                                            className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full text-sm opacity-0 group-hover:opacity-100 transition duration-300 shadow-md"
-                                            title="Remover Foto"
-                                        >
-                                            &times;
-                                        </button>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <div className="p-4 bg-yellow-50 rounded text-yellow-700">
-                        Nenhuma foto adicionada a esta rota ainda.
-                    </div>
-                )}
-            </div>
-    </div>
+        {/* Photos */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h2 className="font-semibold text-slate-800">
+              Fotos <span className="text-slate-400 font-normal text-sm">({route.photos?.length || 0})</span>
+            </h2>
+          </div>
+          <div className="p-5">
+            {route.photos && route.photos.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {route.photos.map(photo => (
+                  <div
+                    key={photo.id}
+                    className="relative rounded-xl overflow-hidden aspect-square bg-slate-100 group shadow-sm"
+                  >
+                    <img
+                      src={photo.url}
+                      alt={`Foto da rota ${route.name}`}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                    {isOwner && (
+                      <button
+                        onClick={() => handleDeletePhoto(photo.id)}
+                        className="absolute top-2 right-2 bg-slate-900/70 hover:bg-rose-600 text-white w-7 h-7 rounded-full text-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200"
+                        title="Remover Foto"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10">
+                <div className="text-3xl mb-2">📷</div>
+                <p className="text-slate-400 text-sm">Nenhuma foto adicionada ainda.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

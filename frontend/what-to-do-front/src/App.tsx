@@ -16,11 +16,8 @@ import { RegisterPage } from './modules/auth/pages/RegisterPage';
 // Importe outros componentes/páginas aqui...
 
 const Layout = ({ children }: { children: React.ReactNode }) => (
-  <div className="min-h-screen bg-gray-50">
-    {/* ... Header Tailwind ... */}
-    <main className="container mx-auto py-6">
-      {children}
-    </main>
+  <div className="min-h-screen bg-slate-50">
+    <main>{children}</main>
   </div>
 );
 

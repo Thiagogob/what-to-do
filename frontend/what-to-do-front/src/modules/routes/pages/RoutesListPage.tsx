@@ -1,5 +1,3 @@
-// src/modules/routes/pages/RoutesListPage.tsx
-
 import React from 'react';
 import { useRoutes } from '../hooks/useRoutes';
 import { useNavigate } from 'react-router-dom';
@@ -7,259 +5,243 @@ import { useAuth } from '../../auth/AuthContext';
 import { httpClient } from '../../../api/httpClient';
 import { useMemo, useRef } from 'react';
 import { type Route } from '../types/route';
-import { FaChevronLeft, FaChevronRight } from 'react-icons/fa'
+import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 interface CategorizedRoutes {
-    [key: string]: Route[];
+  [key: string]: Route[];
 }
 
 const CRITERIA = {
-    EASY_KM: 40,
-    EASY_ELEVATION: 450,
-    CHALLENGE_MAX_KM: 70,
+  EASY_KM: 40,
+  EASY_ELEVATION: 450,
+  CHALLENGE_MAX_KM: 70,
+};
+
+const CATEGORY_META: Record<string, { icon: string; accent: string }> = {
+  'Passeios divertidos':         { icon: '🌿', accent: 'bg-emerald-500' },
+  'Pra Quem Procura um Desafio': { icon: '⛰️', accent: 'bg-amber-500'   },
+  'Rotas Longas':                { icon: '🗺️', accent: 'bg-blue-500'    },
+  'Moderadas/Outras':            { icon: '🚵', accent: 'bg-slate-400'   },
 };
 
 export const RoutesListPage: React.FC = () => {
   const { routes, loading, error, refetch } = useRoutes();
   const navigate = useNavigate();
   const { logout, isAuthenticated, user } = useAuth();
-
   const currentUserId = user?.sub;
+  const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  const carouselRefs = useRef<Record<string, HTMLDivElement | null>>({}); 
-
-  // Função para lidar com a rolagem do carrossel
   const scrollCarousel = (categoryName: string, direction: 'left' | 'right') => {
     const container = carouselRefs.current[categoryName];
     if (container) {
-      // Ajuste o valor de scroll. Ex: 350px (largura da rota + espaço)
-      const scrollAmount = 350; 
-      
-      container.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth', // Rolagem suave
-      });
+      container.scrollBy({ left: direction === 'left' ? -320 : 320, behavior: 'smooth' });
     }
   };
 
   const handleLogout = () => {
-    logout(); // Limpa o token no localStorage e no estado global
-    navigate('/login'); // Redireciona o usuário para a página de Login
+    logout();
+    navigate('/login');
   };
 
   const handleUploadRoute = () => {
-      if (isAuthenticated) {
-          // 1. Logado: Vai para a tela de upload (assumindo a rota /upload)
-          navigate('/upload'); 
-      } else {
-          // 2. Deslogado: Redireciona para o login
-          // Adicionamos o 'state' para que o usuário seja redirecionado para /upload após o login.
-          navigate('/login', { state: { from: '/upload' } }); 
-      }
+    if (isAuthenticated) {
+      navigate('/upload');
+    } else {
+      navigate('/login', { state: { from: '/upload' } });
+    }
   };
 
   const handleDelete = async (routeId: number) => {
-    if (!window.confirm("Tem certeza que deseja remover esta rota permanentemente? Esta ação não pode ser desfeita.")) {
-        return;
-    }
-
+    if (!window.confirm('Tem certeza que deseja remover esta rota permanentemente? Esta ação não pode ser desfeita.')) return;
     try {
-        await httpClient.delete(`/routes/${routeId}`);
-        alert('Rota removida com sucesso!');
-        refetch(); // ⬅️ Recarrega a lista
+      await httpClient.delete(`/routes/${routeId}`);
+      refetch();
     } catch (err) {
-        // Exibe 404 se o usuário tentar deletar a rota de outro
-        const msg = (err as any).response?.status === 404 
-            ? "Rota não encontrada ou você não tem permissão para removê-la." 
-            : "Falha ao remover a rota. Tente novamente.";
-        alert(msg);
-        console.error("Erro ao deletar rota:", err);
+      const msg = (err as any).response?.status === 404
+        ? 'Rota não encontrada ou você não tem permissão para removê-la.'
+        : 'Falha ao remover a rota. Tente novamente.';
+      alert(msg);
     }
   };
 
   const categorizedRoutes = useMemo(() => {
-        if (!routes) return {};
-
-        const categories: CategorizedRoutes = {
-            'Passeios divertidos': [],
-            'Pra Quem Procura um Desafio': [],
-            'Rotas Longas': [],
-            'Moderadas/Outras': [], 
-        };
-
-        // 1. CATEGORIZAÇÃO (Mantida a lógica anterior)
-        routes.forEach(route => {
-            const dist = route.distanceKm;
-            const elev = route.elevationGainMeters;
-
-            if (dist < CRITERIA.EASY_KM && elev < CRITERIA.EASY_ELEVATION) {
-                categories['Passeios divertidos'].push(route);
-            } else if (dist >= CRITERIA.EASY_KM && dist < CRITERIA.CHALLENGE_MAX_KM) {
-                categories['Pra Quem Procura um Desafio'].push(route);
-            } else if (dist >= CRITERIA.CHALLENGE_MAX_KM) {
-                categories['Rotas Longas'].push(route);
-            } else {
-                categories['Moderadas/Outras'].push(route);
-            }
-        });
-
-        // 2. ORDENAÇÃO DENTRO DE CADA CATEGORIA
-        // Usamos Object.keys para iterar sobre os nomes das categorias
-        Object.keys(categories).forEach(categoryName => {
-            categories[categoryName].sort((a, b) => {
-                // ORDENAÇÃO CRESCENTE (a.elev - b.elev)
-                // Se quiser DECRESCENTE, use: b.elevationGainMeters - a.elevationGainMeters
-                return a.elevationGainMeters - b.elevationGainMeters;
-            });
-        });
-
-        return categories;
-    }, [routes]); // Recalcula sempre que a lista de rotas mudar
+    if (!routes) return {};
+    const categories: CategorizedRoutes = {
+      'Passeios divertidos': [],
+      'Pra Quem Procura um Desafio': [],
+      'Rotas Longas': [],
+      'Moderadas/Outras': [],
+    };
+    routes.forEach(route => {
+      const dist = route.distanceKm;
+      const elev = route.elevationGainMeters;
+      if (dist < CRITERIA.EASY_KM && elev < CRITERIA.EASY_ELEVATION) {
+        categories['Passeios divertidos'].push(route);
+      } else if (dist >= CRITERIA.EASY_KM && dist < CRITERIA.CHALLENGE_MAX_KM) {
+        categories['Pra Quem Procura um Desafio'].push(route);
+      } else if (dist >= CRITERIA.CHALLENGE_MAX_KM) {
+        categories['Rotas Longas'].push(route);
+      } else {
+        categories['Moderadas/Outras'].push(route);
+      }
+    });
+    Object.keys(categories).forEach(cat => {
+      categories[cat].sort((a, b) => a.elevationGainMeters - b.elevationGainMeters);
+    });
+    return categories;
+  }, [routes]);
 
   if (loading) {
     return (
-      <div className="p-4 text-gray-600">
-        Carregando rotas... ⏱️
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 font-medium">Carregando rotas...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 text-red-500 bg-red-100 border border-red-400 rounded">
-        Erro ao carregar dados: {error.message}. Você está logado?
-      </div>
-    );
-  }
-
-  if (!routes || routes.length === 0) {
-    return (
-      <div className="p-4 text-gray-500">
-        Nenhuma rota encontrada. Comece a enviar arquivos GPX!
-      </div>
-    );
-  }
-
-return (
-    <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-800">
-                Rotas ({routes.length})
-            </h1>
-              
-            <div className="flex space-x-4">
-                {/* BOTÃO: ENVIAR ROTA (Lógica de autenticação na função handleUploadRoute) */}
-                <button
-                    onClick={handleUploadRoute}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 shadow-md"
-                >
-                    📤 Enviar Rota
-                </button>
-                
-                {/* BOTÃO DE LOGOUT CONDICIONAL */}
-                {isAuthenticated && (
-                    <button
-                        onClick={handleLogout}
-                        className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 shadow-md"
-                    >
-                        Logout
-                    </button>
-                )}
-            </div>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-md p-8 max-w-md w-full text-center">
+          <div className="text-4xl mb-3">⚠️</div>
+          <p className="text-rose-600 font-medium">Erro ao carregar dados: {error.message}</p>
         </div>
+      </div>
+    );
+  }
 
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-emerald-900 to-slate-900 text-white px-6 py-6">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">União Outdoor</h1>
+            <p className="text-emerald-300 text-sm mt-0.5">
+              {routes?.length ?? 0} rotas disponíveis
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleUploadRoute}
+              className="bg-emerald-500 hover:bg-emerald-400 text-white font-semibold py-2 px-5 rounded-full text-sm transition-colors duration-200 flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Enviar Rota
+            </button>
+            {isAuthenticated && (
+              <button
+                onClick={handleLogout}
+                className="text-slate-300 hover:text-white border border-slate-600 hover:border-slate-400 font-medium py-2 px-4 rounded-full text-sm transition-colors duration-200"
+              >
+                Sair
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
-      <div className="space-y-10">
-                {Object.entries(categorizedRoutes).map(([categoryName, routesInCategory]) => (
-                    routesInCategory.length > 0 && (
-                        <div key={categoryName}>
-                            <h2 className="text-2xl font-bold text-gray-700 mt-4 mb-4 border-b pb-2">
-                                {categoryName} ({routesInCategory.length})
-                            </h2>
+      {/* Content */}
+      <div className="max-w-7xl mx-auto px-6 py-10 space-y-14">
+        {!routes || routes.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="text-5xl mb-4">🗺️</div>
+            <p className="text-slate-500 text-lg">Nenhuma rota encontrada.</p>
+            <p className="text-slate-400 text-sm mt-1">Comece enviando um arquivo GPX!</p>
+          </div>
+        ) : (
+          Object.entries(categorizedRoutes).map(([categoryName, routesInCategory]) =>
+            routesInCategory.length > 0 && (
+              <div key={categoryName}>
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="text-2xl">{CATEGORY_META[categoryName]?.icon}</span>
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800">{categoryName}</h2>
+                    <p className="text-slate-400 text-sm">{routesInCategory.length} {routesInCategory.length === 1 ? 'rota' : 'rotas'}</p>
+                  </div>
+                </div>
 
-                            {/* CONTAINER PRINCIPAL DO CARROSSEL (RELATIVO PARA AS FLECHAS) */}
-                            <div className="relative">
-                                
-                                {/* FLECHA ESQUERDA */}
-                                <button
-                                    onClick={() => scrollCarousel(categoryName, 'left')}
-                                    className="absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white p-3 rounded-full shadow-lg hover:shadow-xl transition duration-200 opacity-80 hover:opacity-100 hidden md:block"
-                                    title="Anterior"
-                                >
-                                    <FaChevronLeft size={18} />
-                                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => scrollCarousel(categoryName, 'left')}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-slate-200 p-2.5 rounded-full shadow-md hover:shadow-lg transition-all duration-200 hidden md:flex items-center justify-center"
+                  >
+                    <FaChevronLeft size={14} className="text-slate-600" />
+                  </button>
 
-                                {/* FLECHA DIREITA */}
-                                <button
-                                    onClick={() => scrollCarousel(categoryName, 'right')}
-                                    className="absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white p-3 rounded-full shadow-lg hover:shadow-xl transition duration-200 opacity-80 hover:opacity-100 hidden md:block"
-                                    title="Próximo"
-                                >
-                                    <FaChevronRight size={18} />
-                                </button>
+                  <button
+                    onClick={() => scrollCarousel(categoryName, 'right')}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white border border-slate-200 p-2.5 rounded-full shadow-md hover:shadow-lg transition-all duration-200 hidden md:flex items-center justify-center"
+                  >
+                    <FaChevronRight size={14} className="text-slate-600" />
+                  </button>
 
+                  <div
+                    ref={el => { carouselRefs.current[categoryName] = el; }}
+                    className="flex overflow-x-auto gap-4 pb-4 px-10 scrollbar-hide"
+                  >
+                    {routesInCategory.map(route => {
+                      const isOwner = currentUserId && route.userId === currentUserId;
+                      const accent = CATEGORY_META[categoryName]?.accent ?? 'bg-emerald-500';
 
-                                {/* CONTAINER DE ROLAGEM (Scrollable Div) */}
-                                <div 
-                                    // ⬅️ Atribuição da ref com sintaxe de bloco para garantir o retorno VOID
-                                    ref={el => { carouselRefs.current[categoryName] = el; }}
-                                    className="flex overflow-x-auto space-x-4 pb-4 px-10 scrollbar-hide" 
-                                >
-                                    {routesInCategory.map((route) => {
-                                        const isOwner = currentUserId && route.userId === currentUserId; 
-                                          
-                                        return (
-                                            <div
-                                                key={route.id}
-                                                // w-80 é a largura fixa do card, flex-shrink-0 é crucial
-                                                className="w-80 flex-shrink-0 p-4 shadow-xl rounded-lg border-t-4 border-blue-500 hover:shadow-2xl transition duration-300 flex flex-col justify-between bg-white"
-                                            >
-                                                {/* 1. Área de Dados */}
-                                                <div 
-                                                    onClick={() => navigate(`/routes/${route.id}`)}
-                                                    className="flex-grow cursor-pointer"
-                                                >
-                                                    <h3 className="text-xl font-semibold text-gray-700 mb-2 truncate" title={route.name}>
-                                                        {route.name}
-                                                    </h3>
+                      return (
+                        <div
+                          key={route.id}
+                          className="w-68 flex-shrink-0 bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-slate-100 flex flex-col"
+                          style={{ minWidth: '260px' }}
+                        >
+                          <div className={`h-1 ${accent}`} />
 
-                                                    <div className="space-y-1 text-sm text-gray-500">
-                                                        <p>
-                                                            <span className="font-medium text-gray-600">Distância:</span>
-                                                            {Number(route.distanceKm).toFixed(2)} km
-                                                        </p>
-
-                                                        <p>
-                                                            <span className="font-medium text-gray-600">Elevação:</span>
-                                                            {Number(route.elevationGainMeters).toFixed(0)} m
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                {/* 2. Botões de Ação (Apenas se for o Dono) */}
-                                                {isOwner && (
-                                                    <div className="flex space-x-2 mt-4 pt-2 border-t border-gray-100">
-                                                        
-                                                        <button onClick={(e) => { e.stopPropagation(); navigate(`/routes/edit/${route.id}`); }}
-                                                            className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-1 px-3 rounded-lg transition duration-300 text-sm">
-                                                            Editar
-                                                        </button>
-
-                                                        <button onClick={(e) => { e.stopPropagation(); handleDelete(route.id); }}
-                                                            className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-lg transition duration-300 text-sm">
-                                                            Remover
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                          <div
+                            className="p-5 flex-grow cursor-pointer"
+                            onClick={() => navigate(`/routes/${route.id}`)}
+                          >
+                            <h3 className="font-semibold text-slate-800 text-base mb-4 truncate" title={route.name}>
+                              {route.name}
+                            </h3>
+                            <div className="flex gap-5">
+                              <div>
+                                <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">Distância</p>
+                                <p className="text-slate-700 font-semibold text-sm mt-0.5">{Number(route.distanceKm).toFixed(1)} km</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-slate-400 uppercase tracking-wide font-medium">Elevação</p>
+                                <p className="text-slate-700 font-semibold text-sm mt-0.5">{Number(route.elevationGainMeters).toFixed(0)} m</p>
+                              </div>
                             </div>
+                          </div>
+
+                          {isOwner && (
+                            <div className="px-5 pb-4 flex gap-2 border-t border-slate-100 pt-3">
+                              <button
+                                onClick={e => { e.stopPropagation(); navigate(`/routes/edit/${route.id}`); }}
+                                className="flex-1 bg-amber-50 hover:bg-amber-100 text-amber-700 font-medium py-1.5 rounded-lg text-xs transition-colors duration-200"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={e => { e.stopPropagation(); handleDelete(route.id); }}
+                                className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 font-medium py-1.5 rounded-lg text-xs transition-colors duration-200"
+                              >
+                                Remover
+                              </button>
+                            </div>
+                          )}
                         </div>
-                    )
-                ))}
-            </div>
-        </div>
-    );
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )
+          )
+        )}
+      </div>
+    </div>
+  );
 };

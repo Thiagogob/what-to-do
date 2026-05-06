@@ -1,149 +1,143 @@
-// src/modules/routes/pages/UploadRoutePage.tsx
-
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { httpClient } from '../../../api/httpClient'; // Seu cliente Axios
-import { useDropzone } from 'react-dropzone'; // ⬅️ Vamos instalar esta biblioteca
-
-// ⚠️ Instale react-dropzone: npm install react-dropzone
+import { httpClient } from '../../../api/httpClient';
+import { useDropzone } from 'react-dropzone';
 
 export const UploadRoutePage: React.FC = () => {
-    const [file, setFile] = useState<File | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [successMessage, setSuccessMessage] = useState<string | null>(null);
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const navigate = useNavigate();
+  const [file, setFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-    // -----------------------------------------------------
-    // 1. Lógica Drag & Drop (useDropzone)
-    // -----------------------------------------------------
-    const onDrop = useCallback((acceptedFiles: File[]) => {
-        setErrorMessage(null);
-        setSuccessMessage(null);
-        if (acceptedFiles.length > 0) {
-            const uploadedFile = acceptedFiles[0];
-            // Verifique se é um arquivo GPX (ou XML) simples
-            if (uploadedFile.type === 'application/gpx+xml' || uploadedFile.name.toLowerCase().endsWith('.gpx')) {
-                setFile(uploadedFile);
-            } else {
-                setErrorMessage("Por favor, selecione um arquivo válido com extensão .gpx.");
-            }
-        }
-    }, []);
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    if (acceptedFiles.length > 0) {
+      const uploaded = acceptedFiles[0];
+      if (uploaded.type === 'application/gpx+xml' || uploaded.name.toLowerCase().endsWith('.gpx')) {
+        setFile(uploaded);
+      } else {
+        setErrorMessage('Por favor, selecione um arquivo válido com extensão .gpx.');
+      }
+    }
+  }, []);
 
-    const { getRootProps, getInputProps, isDragActive } = useDropzone({
-        onDrop,
-        multiple: false,
-        accept: {
-            'application/gpx+xml': ['.gpx', '.xml'],
-        },
-    });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    multiple: false,
+    accept: { 'application/gpx+xml': ['.gpx', '.xml'] },
+  });
 
-    // -----------------------------------------------------
-    // 2. Lógica de Envio de Arquivo
-    // -----------------------------------------------------
-    const handleSubmit = async () => {
-        if (!file) {
-            setErrorMessage("Selecione um arquivo GPX antes de enviar.");
-            return;
-        }
+  const handleSubmit = async () => {
+    if (!file) { setErrorMessage('Selecione um arquivo GPX antes de enviar.'); return; }
+    setIsLoading(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    const formData = new FormData();
+    formData.append('routeFile', file);
+    try {
+      const response = await httpClient.post('/routes/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const { routeId, name } = response.data;
+      setSuccessMessage(`Rota '${name}' enviada com sucesso!`);
+      setTimeout(() => navigate(`/routes/edit/${routeId}`), 1800);
+    } catch (error) {
+      const msg = (error as any).response?.data?.message || 'Falha no servidor ao processar o arquivo.';
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-        setIsLoading(true);
-        setErrorMessage(null);
-        setSuccessMessage(null);
-
-        const formData = new FormData();
-        // 
-        formData.append('routeFile', file);
-
-        try {
-            // O axios/httpClient enviará o cabeçalho 'Authorization' via interceptor
-            const response = await httpClient.post('/routes/upload', formData, {
-                // Necessário para upload de arquivos
-                headers: { 'Content-Type': 'multipart/form-data' }, 
-            });
-
-            const { routeId, name } = response.data;
-
-            setSuccessMessage(`Rota '${name}' enviada com sucesso! Redirecionando para edição...`);
-            
-            // Redireciona para a lista de rotas ou para os detalhes da nova rota
-            setTimeout(() => {
-                navigate(`/routes/edit/${routeId}`);
-            }, 2000);
-
-        } catch (error) {
-            console.error("Erro no upload:", error);
-            const msg = (error as any).response?.data?.message || "Falha no servidor ao processar o arquivo.";
-            setErrorMessage(`Erro ao enviar: ${msg}`);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    // -----------------------------------------------------
-    // 3. Renderização
-    // -----------------------------------------------------
-    return (
-        <div className="container mx-auto p-6 max-w-lg bg-white shadow-xl rounded-xl">
-            <h2 className="text-3xl font-bold mb-6 text-gray-800 text-center">
-                Upload de Arquivo GPX
-            </h2>
-
-            {/* Mensagens de Feedback */}
-            {successMessage && (
-                <div className="p-4 mb-4 text-green-700 bg-green-100 border border-green-400 rounded">
-                    {successMessage}
-                </div>
-            )}
-            {errorMessage && (
-                <div className="p-4 mb-4 text-red-700 bg-red-100 border border-red-400 rounded">
-                    {errorMessage}
-                </div>
-            )}
-
-            {/* Área de Drag and Drop */}
-            <div 
-                {...getRootProps()} 
-                className={`p-10 border-2 border-dashed rounded-lg text-center transition duration-300 ${
-                    isDragActive ? 'bg-blue-50 border-blue-500' : 'bg-gray-50 border-gray-300'
-                } cursor-pointer mb-6`}
-            >
-                <input {...getInputProps()} />
-                {isDragActive ? (
-                    <p className="text-blue-700 font-semibold">Solte o arquivo GPX aqui...</p>
-                ) : (
-                    <p className="text-gray-600">Arraste e solte um arquivo GPX aqui, ou clique para selecionar.</p>
-                )}
-            </div>
-
-            {/* Informações do Arquivo Selecionado */}
-            {file && (
-                <div className="flex justify-between items-center p-4 bg-gray-100 rounded-md mb-6">
-                    <p className="text-sm font-medium text-gray-800">
-                        Arquivo Selecionado: <span className="font-bold">{file.name}</span>
-                    </p>
-                    <button
-                        onClick={() => setFile(null)}
-                        className="text-red-500 hover:text-red-700 text-sm"
-                    >
-                        Remover
-                    </button>
-                </div>
-            )}
-
-            {/* Botão de Envio */}
-            <button
-                onClick={handleSubmit}
-                disabled={!file || isLoading}
-                className={`w-full py-3 font-semibold rounded-lg shadow-md transition duration-300 ${
-                    !file || isLoading
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
-                }`}
-            >
-                {isLoading ? 'Enviando...' : 'Processar e Salvar Rota'}
-            </button>
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-emerald-900 to-slate-900 text-white px-6 py-5">
+        <div className="max-w-2xl mx-auto flex items-center gap-4">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1.5 text-slate-300 hover:text-white text-sm font-medium transition-colors duration-200"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Voltar
+          </button>
+          <div className="w-px h-5 bg-slate-600" />
+          <h1 className="text-lg font-bold">Enviar Rota</h1>
         </div>
-    );
+      </div>
+
+      <div className="max-w-2xl mx-auto px-6 py-10">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-1">Upload de arquivo GPX</h2>
+          <p className="text-slate-400 text-sm mb-8">Arraste ou selecione o arquivo para processar e salvar sua rota.</p>
+
+          {successMessage && (
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm flex items-center gap-2">
+              <span>✓</span> {successMessage}
+            </div>
+          )}
+          {errorMessage && (
+            <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-600 text-sm">
+              {errorMessage}
+            </div>
+          )}
+
+          {/* Dropzone */}
+          <div
+            {...getRootProps()}
+            className={`rounded-2xl border-2 border-dashed p-12 text-center transition-colors duration-200 cursor-pointer ${
+              isDragActive
+                ? 'border-emerald-400 bg-emerald-50'
+                : 'border-slate-200 bg-slate-50 hover:border-emerald-300 hover:bg-slate-100'
+            }`}
+          >
+            <input {...getInputProps()} />
+            <div className="text-4xl mb-3">📁</div>
+            {isDragActive ? (
+              <p className="text-emerald-600 font-semibold">Solte o arquivo aqui...</p>
+            ) : (
+              <>
+                <p className="text-slate-600 font-medium">Arraste um arquivo GPX aqui</p>
+                <p className="text-slate-400 text-sm mt-1">ou clique para selecionar</p>
+              </>
+            )}
+          </div>
+
+          {/* Selected file */}
+          {file && (
+            <div className="mt-4 flex items-center justify-between p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+              <div className="flex items-center gap-3">
+                <span className="text-emerald-600 text-lg">📄</span>
+                <div>
+                  <p className="text-sm font-medium text-slate-800">{file.name}</p>
+                  <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
+                </div>
+              </div>
+              <button onClick={() => setFile(null)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={handleSubmit}
+            disabled={!file || isLoading}
+            className={`w-full mt-6 py-3 rounded-xl font-semibold text-sm transition-colors duration-200 ${
+              !file || isLoading
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+            }`}
+          >
+            {isLoading ? 'Processando...' : 'Processar e Salvar Rota'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };

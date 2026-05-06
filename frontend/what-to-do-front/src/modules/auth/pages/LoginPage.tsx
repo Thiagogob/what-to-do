@@ -1,9 +1,7 @@
-// src/modules/auth/pages/LoginPage.tsx
-
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { useAuth } from '../AuthContext'; // Hook do AuthContext
-import { loginApi } from '../authApi'; // ⬅️ Vamos criar esta função na próxima etapa
+import { useAuth } from '../AuthContext';
+import { loginApi } from '../authApi';
 
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -13,98 +11,92 @@ export const LoginPage: React.FC = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth(); // Obtém a função login do contexto
-
-  // Captura o caminho de onde o usuário veio (ex: /routes/20)
-  const from = location.state?.from?.pathname || '/'; 
+  const { login } = useAuth();
+  const from = (location.state as any)?.from?.pathname || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
-
     try {
-      // 2. Chama a função API para autenticar e obter o token
       const response = await loginApi(username, password);
-      const token = response.access_token; // Seu backend retorna 'access_token' (snake_case)
-      
-      // 3. Atualiza o Contexto Global e armazena o token
-      login(token); 
-      
-      // 4. Redireciona o usuário para a página original que ele tentou acessar
+      login(response.access_token);
       navigate(from, { replace: true });
-
     } catch (err) {
-      // Trata erros de requisição (ex: 401 Unauthorized)
-      const errorMsg = (err as any).response?.data?.message || 'Falha na autenticação. Verifique suas credenciais.';
-      setError(errorMsg);
-
+      setError((err as any).response?.data?.message || 'Falha na autenticação. Verifique suas credenciais.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-2xl">
-        <h2 className="text-3xl font-bold text-center text-gray-900">
-          Faça Login
-        </h2>
-        
-        {error && (
-          <p className="p-3 text-sm text-center text-red-700 bg-red-100 border border-red-300 rounded">
-            {error}
+    <div className="min-h-screen bg-gradient-to-br from-emerald-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-white tracking-tight">União Outdoor</h1>
+          <p className="text-emerald-300 text-sm mt-1">Explore suas rotas favoritas</p>
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-2xl p-8">
+          <h2 className="text-xl font-bold text-slate-800 mb-6">Entrar na sua conta</h2>
+
+          {error && (
+            <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-600 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Nome de Usuário
+              </label>
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                placeholder="seu_usuario"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Senha
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                placeholder="••••••••"
+                disabled={isLoading}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className={`w-full py-3 rounded-xl font-semibold text-sm transition-colors duration-200 mt-2 ${
+                isLoading
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              }`}
+            >
+              {isLoading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-slate-500">
+            Não tem uma conta?{' '}
+            <Link to="/register" className="font-semibold text-emerald-600 hover:text-emerald-700">
+              Criar conta
+            </Link>
           </p>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Nome de Usuário
-            </label>
-            <input
-              type="text"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              disabled={isLoading}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Senha
-            </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              disabled={isLoading}
-            />
-          </div>
-          
-          <button
-            type="submit"
-            className={`w-full py-2 px-4 font-semibold rounded-lg transition duration-300 ${
-              isLoading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-            disabled={isLoading}
-          >
-            {isLoading ? 'Entrando...' : 'Entrar'}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-sm text-gray-600">
-          Não tem uma conta?{' '}
-          <Link to="/register" className="font-medium text-green-600 hover:text-green-500">
-            Criar conta
-          </Link>
-        </p>
+        </div>
       </div>
     </div>
   );
