@@ -11,7 +11,6 @@ import { UserModule } from './user/user.module';
 import { RoutesModule } from './routes/routes.module';
 import { ALL_ENTITIES } from './typeorm.entities';
 import { StorageModule } from './gcs/gcs.module';
-import { MigrationModule } from './migration/migration.module';
 
 // --- CONFIGURAÇÃO CONDICIONAL DE BANCO DE DADOS ---
 // Esta lógica verifica se a aplicação está rodando em ambiente de teste (NODE_ENV=test).
@@ -75,7 +74,6 @@ const DatabaseModule =
     }),
     
     // Módulos da aplicação
-    MigrationModule,
     AuthModule,
     UserModule,
     RoutesModule,
