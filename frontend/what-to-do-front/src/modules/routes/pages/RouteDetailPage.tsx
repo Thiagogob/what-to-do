@@ -47,7 +47,13 @@ export const RouteDetailPage: React.FC = () => {
       document.body.removeChild(link);
     } catch (err) {
       const status = (err as any).response?.status;
-      alert(status === 401 || status === 403 ? 'Acesso negado. Por favor, faça login novamente.' : 'Falha ao baixar o arquivo GPX.');
+      alert(
+        status === 404
+          ? 'O arquivo GPX original não está disponível. Esta rota foi importada de um sistema anterior e o arquivo não foi migrado.'
+          : status === 401 || status === 403
+          ? 'Acesso negado. Por favor, faça login novamente.'
+          : 'Falha ao baixar o arquivo GPX.'
+      );
     } finally {
       setIsDownloading(false);
     }

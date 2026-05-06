@@ -231,7 +231,7 @@ async remove(
         res.send(gpxBuffer);
             
         } catch (error) {
-            // Se o arquivo não puder ser lido (ex: foi movido ou deletado manualmente)
+            if (error instanceof NotFoundException) throw error;
             console.error(`Falha ao ler o arquivo: ${route.originalFilePath}`, error);
             throw new InternalServerErrorException('Falha ao ler o arquivo GPX no disco.');
         }
