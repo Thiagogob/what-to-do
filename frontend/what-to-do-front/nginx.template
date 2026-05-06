@@ -1,41 +1,42 @@
 server {
-    listen 8080; 
+    listen ${PORT};
 
     resolver 8.8.8.8 valid=30s;
 
     set $backend_url "$API_BASE_URL";
-    # Rota para os arquivos estáticos do React (HTML5 Mode)
+
     location / {
         root   /usr/share/nginx/html;
         index  index.html;
-        try_files $uri $uri/ /index.html; # CRÍTICO para o roteamento do React (SPA)
+        try_files $uri $uri/ /index.html;
     }
 
-    # REMOVER O BLOCO DE PROXY AQUI!
-    # location /api { ... }
     location /api {
-        
         proxy_ssl_server_name on;
-
         proxy_ssl_verify off;
-
-       
-        # CRÍTICO: O Nginx intercepta /api/ e redireciona para a URL do Cloud Run Backend
         proxy_pass $backend_url;
-
-        proxy_connect_timeout 60s; # Tempo para estabelecer conexão
-        proxy_send_timeout 60s;    # Tempo para enviar dados ao backend
-        proxy_read_timeout 60s;    # Tempo para esperar a resposta completa do backend 
-
-    
-        # Configurações de cabeçalho padrão
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
         proxy_set_header Connection "";
     }
-    
+
+    location /uploads {
+        proxy_ssl_server_name on;
+        proxy_ssl_verify off;
+        proxy_pass $backend_url;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+    }
+
     error_page   500 502 503 504  /50x.html;
     location = /50x.html {
         root   /usr/share/nginx/html;

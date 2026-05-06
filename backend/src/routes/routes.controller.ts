@@ -7,7 +7,7 @@ import { stringifyGPX } from '@we-gold/gpxjs';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
-import { GcsService } from '../gcs/gcs.service';
+import { StorageService } from '../gcs/gcs.service';
 import { 
     ApiTags, ApiOperation, ApiResponse, 
     ApiConsumes, ApiBody, ApiParam, ApiOkResponse,
@@ -76,7 +76,7 @@ const gpxStorageOptions = { storage: memoryStorage() };
 export class RoutesController {
     constructor(
         private readonly routesService: RoutesService,
-        private readonly gcsService: GcsService,
+        private readonly storageService: StorageService,
     ) {}
 
     // Rota: POST /routes/upload
@@ -114,7 +114,7 @@ export class RoutesController {
         const userId = req.user.sub;
 
 
-        const route = await this.routesService.processGpxFile(file, userId, this.gcsService); 
+        const route = await this.routesService.processGpxFile(file, userId, this.storageService); 
         
         console.log('LOG 5: Controller - Processamento Completo. Retornando resposta.');
 
@@ -185,7 +185,7 @@ async remove(
         const userId = req.user.sub;
         
         // 1. Chama o Service, que verifica a propriedade
-        await this.routesService.remove(+id, userId, this.gcsService); 
+        await this.routesService.remove(+id, userId, this.storageService); 
         // Retorna 204 (implícito pelo @HttpCode)
     }
 
@@ -220,7 +220,7 @@ async remove(
 
         try {
             // 2. LÊ O ARQUIVO GPX ORIGINAL DO DISCO
-        const gpxBuffer = await this.gcsService.downloadFileAsBuffer(route.originalFilePath); 
+        const gpxBuffer = await this.storageService.downloadFileAsBuffer(route.originalFilePath); 
 
         // ⬇️ GCS: Configura os headers de resposta
         const fileName = `${route.name.replace(/\s+/g, '_')}_${route.id}.gpx`;
@@ -283,7 +283,7 @@ async remove(
         console.log("LOG: Quantidade de fotos:", photos.length);
         if (photos.length > 0) {
             // O service salvará os metadados de cada foto no DB
-            await this.routesService.saveRoutePhotos(routeId, userId, photos, this.gcsService);
+            await this.routesService.saveRoutePhotos(routeId, userId, photos, this.storageService);
         }
 
         // Retorna a rota atualizada (o Service pode retornar a rota com as fotos carregadas)
@@ -306,7 +306,7 @@ async remove(
         const userId = req.user.sub;
     
         // 1. Chama o Service para executar a deleção e verificação de propriedade
-        await this.routesService.removePhoto(+photoId, userId, this.gcsService); 
+        await this.routesService.removePhoto(+photoId, userId, this.storageService); 
     
         // Retorna 204 No Content
     }

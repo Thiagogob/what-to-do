@@ -9,12 +9,14 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   
+  const corsOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',')
+    : ['http://localhost:5174'];
+
   app.enableCors({
-    origin: ['http://localhost:5174', //
-    'https://what-to-do-frontend-485595135682.southamerica-east1.run.app',
-  ],
+    origin: corsOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true, // Se  precisar enviar cookies/JWT
+    credentials: true,
   });
   
   // 1. Configuração do Swagger

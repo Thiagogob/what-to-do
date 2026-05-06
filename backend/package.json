@@ -22,10 +22,8 @@
     "migration:run": "npm run typeorm -- migration:run",
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:revert": "npm run typeorm -- migration:revert"
-
   },
   "dependencies": {
-    "@google-cloud/storage": "^7.18.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -38,7 +36,6 @@
     "@types/bcrypt": "^6.0.0",
     "@we-gold/gpxjs": "^1.1.0",
     "bcrypt": "^6.0.0",
-    "tsconfig-paths": "^4.2.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
     "multer": "^2.0.2",
@@ -49,6 +46,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
+    "tsconfig-paths": "^4.2.0",
     "typeorm": "^0.3.27",
     "xmldom-qsa": "^1.1.3"
   },

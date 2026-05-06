@@ -4,12 +4,12 @@ import { Route } from './entities/route.entity';
 import { RoutesController } from './routes.controller';
 import { RoutesService } from './routes.service';
 import { RoutePhoto } from './entities/route-photo.entity';
-import { GcsModule } from '../gcs/gcs.module';
+import { StorageModule } from '../gcs/gcs.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Route, RoutePhoto]),
-    GcsModule,
+    StorageModule,
   ],
   controllers: [RoutesController],
   providers: [RoutesService],
